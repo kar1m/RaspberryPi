@@ -91,6 +91,8 @@ dummy:
     bx lr
 irq:
     b ctx_switch_from_irq
+swi:
+    b SWIHandler
 
 	
 ;@-------------------------------------------------------------------------
