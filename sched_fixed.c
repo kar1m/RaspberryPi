@@ -3,15 +3,8 @@
 #include "stdlib.h"
 #include "hw.h"
 
-//a enlever
-void init_ctx(struct ctx_s* ctx, func_t f, unsigned int stack_size)
-{
-	ctx->currentPC = (unsigned int) f;
-	ctx->currentSP = (unsigned int) phyAlloc_alloc(stack_size*4);
-	ctx->currentSP += (stack_size*4-4);
-}
-
-void init_pcb(struct pcb_s* pcb, func_t f, void* ptArgs, struct pcb_priority priority)
+/* Ordonnanceur*/
+void init_pcb(struct pcb_s* pcb, func_t f, void* ptArgs, pcb_priority priority)
 {
 	static int nbProcess = 0;
 	pcb->ps_state = CREATED;
@@ -21,36 +14,7 @@ void init_pcb(struct pcb_s* pcb, func_t f, void* ptArgs, struct pcb_priority pri
 	pcb->priority = priority;
 }
 
-//A enlever
-void __attribute__ ((naked)) switch_to(struct ctx_s* ctx)
-{
-	//1 Sauvegarde du contexte
-	//----on sauvegarde les registres
-	__asm("push {r0-r12}");
-	//----cad on range le PC courant dans la pile
-	__asm("mov %0, lr" : "=r"(current_ctx->currentPC));
-	//----puis on sauvegarde le SP
-	__asm("mov %0, sp" : "=r"(current_ctx->currentSP));
-	
-	//2 Changement de contexte
-	//----cad on change de contexte courant
-	current_ctx = ctx;
-	//----et on recharge le SP
-	__asm("mov sp, %0" : : "r"(ctx->currentSP));
-	//----on charge LR pour le retour
-	__asm("mov lr, %0" : : "r"(ctx->currentPC));
-	//----on restaure les registres
-	__asm("pop {r0-r12}");
-
-	//----puis on branche sur le PC du nouveau contexte
-	__asm("bx lr");
-	
-}
-
-/* Ordonnanceur
-*/
-
-void create_process_fixed(func_t f, void* args, unsigned int stack_size, struct pcb_priority priority)
+void create_process_fixed(func_t f, void* args, unsigned int stack_size,pcb_priority priority)
 {
 	//On libère de la place pour notre pcb
 	struct pcb_s* pt_newPcb = (pcb_s*) phyAlloc_alloc(sizeof(pcb_s));
@@ -67,16 +31,16 @@ void create_process_fixed(func_t f, void* args, unsigned int stack_size, struct 
 
 	//Mise à jour last pcb pour ajouter le nouveau pcb à la liste
 	struct pcb_s* first_process_priority = tab_files_process[priority];
-	if(first_process_priority == null)
+	if(first_process_priority == NULL)
 	{
-		first_process_priority = pt_newPcb;
+		tab_files_process[priority] = pt_newPcb;
 	}else{
-		struct pcb_s* current_process = first_process_priority;	
-		while( current_process->pt_nextPs != null)
+		struct pcb_s* current_process_priority = first_process_priority;	
+		while( current_process_priority->pt_nextPs != NULL)
 		{
-			current_process = current_process->pt_nextPs; 
+			current_process_priority = current_process_priority->pt_nextPs; 
 		}
-		current_process->pt_nextPs = pt_newPcb;
+		current_process_priority->pt_nextPs = pt_newPcb;
 	}
 }
 
@@ -88,26 +52,27 @@ void start_current_process()
 
 void kill_current_process()
 {
-	//On referme la boucle
-	struct pcb_s* scanned_process = current_process;
+	tab_files_process[current_priority] = tab_files_process[current_priority]->pt_nextPs;
 
-	//On balaye toute la boucle afin de
-	//recuperer l'element avant le 
-	//process courant, afin de lui assigner un nw suivant
-	while(scanned_process->pt_nextPs != current_process)
-		scanned_process = scanned_process->pt_nextPs;
-	scanned_process->pt_nextPs = current_process->pt_nextPs;		
-	
+
 	//Liberation memoire 
 	void* pt_stack = (void*)(current_process->currentSP-current_process->stackSize+52);
 	phyAlloc_free(pt_stack,current_process->stackSize);
 	phyAlloc_free(current_process, sizeof(pcb_s));
-
-	current_process = scanned_process->pt_nextPs;
 }
 void elect()
 {
-	current_process = current_process->pt_nextPs;
+	int i = 0;
+	for(i=0; i<NUMBER_LISTS; i++)
+	{
+		struct pcb_s* first_process_priority = tab_files_process[i];
+		if(first_process_priority != NULL)
+		{	
+			current_process = first_process_priority;
+			current_priority = i; 
+			break;
+		}
+	}
 }
 
 void start_sched()
@@ -116,57 +81,6 @@ void start_sched()
    	set_tick_and_enable_timer();
 }
 
-void __attribute__ ((naked)) ctx_switch()
-{
-        //Sauvegarde du contexte
-        //----on sauvegarde les registres
-        __asm("push {r0-r12}");
-        //----cad on range le PC courant dans la pile
-        __asm("mov %0, lr" : "=r"(current_process->currentPC)); 
-	//----puis on sauvegarde le SP	
-        __asm("mov %0, sp" : "=r"(current_process->currentSP));
-	
-	//Changement etat processus
-	current_process->ps_state = READY;
-	//2 Election
-	int continue_elect = 1;
-	while(continue_elect)
-	{
-		elect();
-		switch(current_process->ps_state)
-		{
-			case CREATED:
-				current_process->ps_state = RUNNING;
-				start_current_process();
-				current_process->ps_state = TERMINATED;
-				break;
-
-			case TERMINATED:
-				kill_current_process();
-				break;
-
-			case READY:
-				current_process->ps_state = RUNNING;
-
-				//3 Restauration contexte
-        			//----et on recharge le SP
-        			__asm("mov sp, %0" : : "r"(current_process->currentSP));
-        			//----on charge LR pour le retour
-        			__asm("mov lr, %0" : : "r"(current_process->currentPC));
-        			//----on restaure les registres
-        			__asm("pop {r0-r12}");
-
-				//----on branche
-				__asm("bx lr");
-				continue_elect = 0;
-				break;
-			
-			default:
-				continue_elect = 1;
-				break;
-		}
-	} 
-}
 
 void ctx_switch_from_irq()
 {

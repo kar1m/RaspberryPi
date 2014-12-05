@@ -1,5 +1,5 @@
 #include "stdlib.h"
-#include "sched.h"
+#include "sched_fixed.h"
 #include "hw.h"
 
 void funcA()
@@ -14,14 +14,15 @@ void funcA()
 void funcB()
 {
     int cptB = 1;
-    while ( 1 ) {
+    while ( cptB < 200 ) {
         cptB += 2 ;
        // ctx_switch();
     }
 }
 
-void funcC(int babar)
+void funcC()
 {
+int babar =0;
     while(babar<37)
     {
         babar++;
@@ -34,11 +35,10 @@ int kmain ( void )
 {
     init_hw();
     current_process->pt_fct = NULL;
-    int babar = 33;
     int stack_size = STACK_SIZE;
-    create_process(funcB, NULL, stack_size);
-    create_process(funcA, NULL, stack_size);
-   // create_process(funcC, babar, stack_size);
+    create_process_fixed(funcB, NULL, stack_size,LOW);
+    create_process_fixed(funcA, NULL, stack_size,LOW);
+    create_process_fixed(funcC, NULL, stack_size,MEDIUM);
     start_sched();
    // ctx_switch();
     while(1){}
