@@ -1,6 +1,6 @@
 #include "stdlib.h"
-#include "sched_fixed.h"
-#include "hw.h"
+#include "./sched_fixed_priority/sched_fixed.h"
+#include "./hardware/hw.h"
 
 void funcA()
 {

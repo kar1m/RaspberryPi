@@ -1,6 +1,6 @@
-#include "hw.h"
-#include "phyAlloc.h"
-#include "types.h"
+#include "../hardware/hw.h"
+#include "../alloc_simple/phyAlloc.h"
+#include "../types.h"
 
 #define CS      0x20003000
 #define CLO     0x20003004
