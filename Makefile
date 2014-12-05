@@ -15,6 +15,7 @@ gcc : kernel
 
 clean :
 	rm -f *.o
+	rm -f ./*/*.o
 	rm -f *.bin
 	rm -f *.hex
 	rm -f *.elf
