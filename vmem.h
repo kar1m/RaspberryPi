@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 
-
 //Definition des constantes de pagination
 #define PAGE_SIZE 4096
 #define SECON_LVL_TT_COUN 256
@@ -16,7 +15,6 @@
 #define FIRST_LVL_TT_START_ADDR 0x48000
 #define SECON_LVL_TT_START_ADDR 0x49000
 #define SECON_LVL_TT_END_ADDR 0x148FFF
-#define MMUTABLEBASE (FIRST_LVL_TT_START_ADDR)
 
 //Adresses limites de translation
 #define NO_TRANS_BEG_ADDR1 0x0
@@ -24,12 +22,8 @@
 #define NO_TRANS_BEG_ADDR2 0x20000000
 #define NO_TRANS_END_ADDR2 0x21000000
 
-
 unsigned int init_kern_translation_table();
-void generateTestValues();
-int testVM();
-void start_mmu_C(); 
-void configure_mmu_C();
-extern void PUT32( unsigned int, unsigned int);
+
+
 
 #endif

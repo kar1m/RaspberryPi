@@ -1,6 +1,7 @@
 #include "stdlib.h"
 #include "sched.h"
 #include "hw.h"
+#include "VirtualMemory/vmem.h"
 
 void funcA()
 {
@@ -32,16 +33,11 @@ void funcC(int babar)
 //------------------------------------------------------------------------
 int kmain ( void )
 {
-    init_hw();
-    current_process->pt_fct = NULL;
-    int babar = 33;
-    int stack_size = STACK_SIZE;
-    create_process(funcB, NULL, stack_size);
-    create_process(funcA, NULL, stack_size);
-   // create_process(funcC, babar, stack_size);
-    start_sched();
-   // ctx_switch();
-    while(1){}
-    /* Pas atteignable vues nos 2 fonctions */
-    return 0;
+    	init_hw();
+    	init_kern_translation_table();
+	generateTestValues();
+	configure_mmu_C();
+	start_mmu_C();
+	testVM();	
+	return 0;
 }
