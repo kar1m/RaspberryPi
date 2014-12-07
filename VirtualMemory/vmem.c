@@ -1,4 +1,5 @@
 #include "vmem.h"
+#include <stdio.h>
 
 unsigned int total=0;
 
@@ -100,4 +101,112 @@ void configure_mmu_C()
  * * Every mapped section/page is in domain 0
  * */
 	__asm volatile("mcr p15, 0, %[r], c3, c0, 0" : : [r] "r" (0x3));
+}
+
+uint8_t* vMem_Alloc(unsigned int nbPages)
+{
+	uint8_t addrMem = NULL;
+	uint32_t noPage = findFirstUnoccupied(0);
+	if(noPage==-1)
+		return NULL;
+	//On verifie que toutes les pages sont disponibles
+	while(noPage!=-1 && checkRangeOccupation(noPage,noPage+nbPages))
+	{
+		if(noPage+nbPages>PAGE_COUN)
+			//Defaut d'allocation, aucune page trouvee
+			return NULL;
+		noPage = findFirstUnoccupied(noPage+nbPages);
+		
+	}
+	//On a notre plage de pages
+	//On charge en retour l'adresse initiale
+	addrMem = noPage*PAGE_SIZE;
+	
+	//Remplissage de la table des pages
+	uint32_t noCurrentPage;
+	for(	noCurrentPage=noPage;
+		noCurrentPage<noPage+nbPages;
+		noCurrentPage++)
+	{
+		setOccupied(noPage);
+	}
+	return addrMem;	
+}
+
+void vMem_Free(uint8_t* ptr, unsigned int nbPages)
+{
+	
+	
+}
+
+uint32_t* getPageDescriptor(uint32_t noPage)
+{
+	return noPage+SECON_LVL_TT_START_ADDR;
+}
+
+int32_t findFirstUnoccupied(uint32_t noPageDebut)
+{
+	uint32_t* currOccupTableAddr;
+	uint8_t currOffsetInLine = 0;
+	uint8_t unoccFind = 0;
+	for(	currOccupTableAddr=FRAMES_OCCUP_TABLE_ADDR+noPageDebut/8;
+		currOccupTableAddr<0x20000000;
+		currOccupTableAddr++)
+	{
+		if(*currOccupTableAddr!=255)
+		{
+			for(	currOffsetInLine=0;
+				currOffsetInLine<8;
+				currOffsetInLine++)
+			{
+				uint32_t noPage =((uint32_t) currOccupTableAddr - FRAMES_OCCUP_TABLE_ADDR)*8+currOffsetInLine;
+				if(!checkOccupation(noPage))
+				{
+					unoccFind = 1;
+					break;
+				}
+			}
+		}
+	}
+	if(unoccFind)
+		return currOccupTableAddr+currOffsetInLine-FRAMES_OCCUP_TABLE_ADDR;
+	else
+		return -1;
+}
+int checkRangeOccupation(uint32_t pageBegin, uint32_t pageEnd)
+{
+	uint32_t currentPage;
+	for(currentPage=pageBegin;currentPage<pageEnd;currentPage++)
+		if(!checkOccupation(currentPage))
+			return 0;
+	
+	return 1;
+}
+
+int checkOccupation(uint32_t noPage)
+{	
+	uint32_t* occupTableLine = noPage/8;
+	uint32_t* occupTableAddr = occupTableLine+FRAMES_OCCUP_TABLE_ADDR;
+	uint8_t occupTableOffs = noPage%8;
+	uint8_t occupModifierLine = 1 << occupTableOffs;
+	return ((*occupTableAddr | occupModifierLine)%2);		
+}
+
+void setOccupied(uint32_t noPage)
+{
+	uint32_t* occupTableLine = noPage/8;
+	uint32_t* occupTableAddr = occupTableLine+FRAMES_OCCUP_TABLE_ADDR;
+	uint8_t occupTableOffs = noPage%8;
+	uint8_t occupModifierLine = 1 << occupTableOffs;
+	*occupTableAddr = *occupTableAddr | occupModifierLine;
+}
+
+void setUnoccupied(uint32_t pageAddr)
+{
+	
+	uint32_t* occupTableLine = pageAddr/8;
+	uint32_t* occupTableAddr = occupTableLine+FRAMES_OCCUP_TABLE_ADDR;
+	uint8_t occupTableOffs = pageAddr%8;
+	uint8_t occupModifierLine = 255-2^occupTableOffs;
+	*occupTableAddr = *occupTableAddr & occupModifierLine;
 }
