@@ -1,0 +1,10 @@
+#include "isolation.h"
+#include "../hardware/hw.h"
+#include "../sched_fixed_priority/sched_fixed.h"
+
+
+void data_handler()
+{
+// Pour tuer le process
+	kill_current_process();
+}

@@ -5,40 +5,51 @@
 void funcA()
 {
     int cptA = 0;
-    while ( 1 ) {
-        cptA ++;
-    //    ctx_switch();
+    while (1) {
+	int i,j;
+	for (i=0; i<200000; i++);
+	led_on();
+	for (j=0; j<200000; j++);
+	led_off();
     }
 }
 
 void funcB()
 {
-    int cptB = 1;
-    while ( cptB < 200 ) {
-        cptB += 2 ;
-       // ctx_switch();
+int clt =0;
+while (1) {
+	int i,j;
+	for (i=0; i<100000; i++);
+	led_on();
+	for (j=0; j<100000; j++);
+	led_off();
+	clt++;
     }
 }
 
 void funcC()
 {
-int babar =0;
-    while(babar<37)
-    {
-        babar++;
-      //  ctx_switch();
+int clt =0;
+while (clt < 10) {
+	int i,j;
+	for (i=0; i<100000; i++);
+	led_on();
+	for (j=0; j<100000; j++);
+	led_off();
+	clt++;
     }
 }
 
 //------------------------------------------------------------------------
 int kmain ( void )
 {
-    init_hw();
+  init_hw();
+     
     current_process->pt_fct = NULL;
     int stack_size = STACK_SIZE;
     create_process_fixed(funcB, NULL, stack_size,LOW);
-    create_process_fixed(funcA, NULL, stack_size,LOW);
-    create_process_fixed(funcC, NULL, stack_size,MEDIUM);
+    create_process_fixed(funcA, NULL, stack_size,MEDIUM);
+    create_process_fixed(funcC, NULL, stack_size,HIGH);
     start_sched();
    // ctx_switch();
     while(1){}

@@ -1,5 +1,5 @@
 #ifndef PHYALLOC_DYN_H
-#define PHYALLOC_DYN_H
+#define PHYALLOC__DYN_H
 
 void* dyn_alloc(unsigned int size);
 void dyn_free(void *ptr, unsigned int size);

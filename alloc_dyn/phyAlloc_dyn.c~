@@ -1,4 +1,4 @@
-#include "phyAlloc.h"
+#include "phyAlloc_dyn.h"
 
 struct fl {
 	struct fl	*next;
@@ -8,17 +8,20 @@ struct fl {
 static char* top;
 static char* heap_limit;
 
-void*
-phyAlloc_alloc(unsigned int size)
+void* dyn_alloc(unsigned int size)
 {
 	register struct fl *f = freelist, **prev;
 
 	prev = &freelist;
-	while (f && f->size < size) {
+	while (f && f->size < size) 
+	{
 		prev = &f->next;
 		f = f->next;
 	}
-	if (f == (struct fl *)0) {
+
+	if (f == (struct fl *)0) 
+	{
+	// TODO MMU Handler
 		f = (struct fl *)top;
 		top += (size + 3) & ~3;
 		/* No space available anymore */
@@ -31,7 +34,7 @@ phyAlloc_alloc(unsigned int size)
 }
 
 void
-phyAlloc_free(void *ptr, unsigned int size)
+dyn_free(void *ptr, unsigned int size)
 {
 	register struct fl *f = (struct fl *)ptr;
 

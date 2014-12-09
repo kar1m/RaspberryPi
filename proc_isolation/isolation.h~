@@ -1,0 +1,7 @@
+#ifndef ISOLATION_H
+#define ISOLATION_H
+
+#include "stdlib.h"
+
+
+#endif
