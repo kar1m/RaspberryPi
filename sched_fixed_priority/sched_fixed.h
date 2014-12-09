@@ -18,6 +18,7 @@ typedef enum pcb_state {
 	TERMINATED,
 	READY,
 	WAITING,
+	SLEEPING,
 	CREATED
 } pcb_state;
 
@@ -31,6 +32,7 @@ typedef struct pcb_s{
 	unsigned int currentPC;	//Compteur d'instruction courant
 	unsigned int stackSize;//Stack size pour dépiler
 	pcb_priority priority;
+	unsigned int nbQuantums;
 } pcb_s;
 
 

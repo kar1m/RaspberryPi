@@ -110,8 +110,8 @@ void ctx_switch_from_irq()
             case CREATED:
                 current_process->ps_state = RUNNING;
 		
-		set_tick_and_enable_timer();
-		ENABLE_IRQ();		
+				set_tick_and_enable_timer();
+				ENABLE_IRQ();		
 
                 start_current_process();
                 current_process->ps_state = TERMINATED;
@@ -121,6 +121,8 @@ void ctx_switch_from_irq()
                 kill_current_process();
                 break;
                 
+            case SLEEPING:
+            	
             case READY:
                 current_process->ps_state = RUNNING;
                 
@@ -130,12 +132,12 @@ void ctx_switch_from_irq()
                 //----on charge LR pour le retour
                 __asm("mov lr, %0" : : "r"(current_process->currentPC));
                 //----on restaure les registres
-		set_tick_and_enable_timer();
+				set_tick_and_enable_timer();
                 __asm("pop {r0-r12}");
 
-		ENABLE_IRQ();
+				ENABLE_IRQ();
 
-		__asm("rfeia sp!");                
+				__asm("rfeia sp!");                
 
                 continue_elect = 0;
                 break;
