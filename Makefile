@@ -3,7 +3,7 @@ ARMGNU ?= arm-none-eabi
 CFLAGS = -Wall -nostdlib -fomit-frame-pointer -mno-apcs-frame -nostartfiles -ffreestanding -g -march=armv6z -marm -mthumb-interwork
 ASFLAGS = -g -march=armv6z
 
-C_FILES=kernel.c phyAlloc.c hw.c sched.c syscall.c
+C_FILES=kernel.c ./alloc_simple/phyAlloc.c ./hardware/hw.c ./sched_fixed_priority/sched_fixed.c ./syscall/syscall.c
 AS_FILES=vectors.s
 
 OBJS = $(patsubst %.s,%.o,$(AS_FILES))
@@ -15,6 +15,7 @@ gcc : kernel
 
 clean :
 	rm -f *.o
+	rm -f ./*/*.o
 	rm -f *.bin
 	rm -f *.hex
 	rm -f *.elf
