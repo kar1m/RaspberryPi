@@ -1,7 +1,7 @@
 #include "sched.h"
-#include "phyAlloc.h"
+#include "../alloc_simple/phyAlloc.h"
 #include "stdlib.h"
-#include "hw.h"
+#include "../hardware/hw.h"
 
 void init_ctx(struct ctx_s* ctx, func_t f, unsigned int stack_size)
 {
@@ -44,8 +44,74 @@ void __attribute__ ((naked)) switch_to(struct ctx_s* ctx)
 	
 }
 
-/* Ordonnanceur
-*/
+void __attribute__ ((naked)) ctx_switch()
+{
+		//Sauvegarde du contexte
+		//----on sauvegarde les registres
+		__asm("push {r0-r12}");
+		//----cad on range le PC courant dans la pile
+		__asm("mov %0, lr" : "=r"(current_process->currentPC)); 
+	//----puis on sauvegarde le SP	
+		__asm("mov %0, sp" : "=r"(current_process->currentSP));
+
+	//Changement etat processus
+	current_process->ps_state = READY;
+	//2 Election
+	int continue_elect = 1;
+	while(continue_elect)
+	{
+		elect();
+		switch(current_process->ps_state)
+		{
+			case CREATED:
+				current_process->ps_state = RUNNING;
+				start_current_process();
+				current_process->ps_state = TERMINATED;
+				break;
+
+			case TERMINATED:
+				kill_current_process();
+				break;
+
+			case READY:
+				current_process->ps_state = RUNNING;
+
+				//3 Restauration contexte
+					//----et on recharge le SP
+					__asm("mov sp, %0" : : "r"(current_process->currentSP));
+					//----on charge LR pour le retour
+					__asm("mov lr, %0" : : "r"(current_process->currentPC));
+					//----on restaure les registres
+					__asm("pop {r0-r12}");
+
+				//----on branche
+				__asm("bx lr");
+				continue_elect = 0;
+				break;
+
+			default:
+				continue_elect = 1;
+				break;
+		}
+	} 
+}
+
+
+
+
+
+
+/* 																/
+------------------------------Utils------------------------------
+/																*/
+inline unsigned int cpu_cycles() { 
+	unsigned int cycles;
+	asm volatile ("mrc p15, 0, %0, c15, c12, 1" : "=r" (cycles));
+	return cycles;
+}			
+/* 																	    /
+------------------------------Ordonnanceur------------------------------
+/																	  */	
 
 void create_process(func_t f, void* args, unsigned int stack_size)
 {
@@ -69,6 +135,8 @@ void create_process(func_t f, void* args, unsigned int stack_size)
         //Deplacement du SP pour le mettre au sommet de la pile, 
         //en comptant les 13 registres à placer au dessus (48)
 	pt_newPcb->currentSP += (stack_size*4-52);
+	
+	pt_newPcb->nbQuantums = 0; 
 }
 
 void start_current_process()
@@ -120,58 +188,6 @@ void start_sched()
     set_tick_and_enable_timer();
 }
 
-void __attribute__ ((naked)) ctx_switch()
-{
-        //Sauvegarde du contexte
-        //----on sauvegarde les registres
-        __asm("push {r0-r12}");
-        //----cad on range le PC courant dans la pile
-        __asm("mov %0, lr" : "=r"(current_process->currentPC)); 
-	//----puis on sauvegarde le SP	
-        __asm("mov %0, sp" : "=r"(current_process->currentSP));
-	
-	//Changement etat processus
-	current_process->ps_state = READY;
-	//2 Election
-	int continue_elect = 1;
-	while(continue_elect)
-	{
-		elect();
-		switch(current_process->ps_state)
-		{
-			case CREATED:
-				current_process->ps_state = RUNNING;
-				start_current_process();
-				current_process->ps_state = TERMINATED;
-				break;
-
-			case TERMINATED:
-				kill_current_process();
-				break;
-
-			case READY:
-				current_process->ps_state = RUNNING;
-
-				//3 Restauration contexte
-        			//----et on recharge le SP
-        			__asm("mov sp, %0" : : "r"(current_process->currentSP));
-        			//----on charge LR pour le retour
-        			__asm("mov lr, %0" : : "r"(current_process->currentPC));
-        			//----on restaure les registres
-        			__asm("pop {r0-r12}");
-
-				//----on branche
-				__asm("bx lr");
-				continue_elect = 0;
-				break;
-			
-			default:
-				continue_elect = 1;
-				break;
-		}
-	} 
-}
-
 void ctx_switch_from_irq()
 {
     DISABLE_IRQ();
@@ -200,8 +216,8 @@ void ctx_switch_from_irq()
             case CREATED:
                 current_process->ps_state = RUNNING;
 		
-		set_tick_and_enable_timer();
-		ENABLE_IRQ();		
+				set_tick_and_enable_timer();
+				ENABLE_IRQ();		
 
                 start_current_process();
                 current_process->ps_state = TERMINATED;
@@ -211,6 +227,13 @@ void ctx_switch_from_irq()
                 kill_current_process();
                 break;
                 
+            case SLEEPING: 
+				if(current_process->nbQuantums <= cpu_cycles() )
+				{
+					current_process->ps_state = READY; 
+				}else{
+					break;
+				}          	
             case READY:
                 current_process->ps_state = RUNNING;
                 
@@ -220,12 +243,12 @@ void ctx_switch_from_irq()
                 //----on charge LR pour le retour
                 __asm("mov lr, %0" : : "r"(current_process->currentPC));
                 //----on restaure les registres
-		set_tick_and_enable_timer();
+				set_tick_and_enable_timer();
                 __asm("pop {r0-r12}");
 
-		ENABLE_IRQ();
+				ENABLE_IRQ();
 
-		__asm("rfeia sp!");                
+				__asm("rfeia sp!");                
 
                 continue_elect = 0;
                 break;

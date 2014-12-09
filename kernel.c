@@ -1,21 +1,30 @@
 #include "stdlib.h"
-#include "./sched_fixed_priority/sched_fixed.h"
+#include "./sched_simple/sched.h"
 #include "./hardware/hw.h"
+//#include "syscall/syscall.h"
 
 void funcA()
 {
     int cptA = 0;
+
     while (1) {
 	int i,j;
 	for (i=0; i<200000; i++);
 	led_on();
 	for (j=0; j<200000; j++);
 	led_off();
+
+
+
+
+
+
     }
 }
 
 void funcB()
 {
+
 int clt =0;
 while (1) {
 	int i,j;
@@ -24,7 +33,13 @@ while (1) {
 	for (j=0; j<100000; j++);
 	led_off();
 	clt++;
-    }
+
+
+
+
+
+
+
 }
 
 void funcC()
@@ -50,6 +65,7 @@ int kmain ( void )
     create_process_fixed(funcB, NULL, stack_size,LOW);
     create_process_fixed(funcA, NULL, stack_size,MEDIUM);
     create_process_fixed(funcC, NULL, stack_size,HIGH);
+
     start_sched();
    // ctx_switch();
     while(1){}
