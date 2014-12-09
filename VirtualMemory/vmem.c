@@ -5,51 +5,90 @@ unsigned int total=0;
 
 unsigned int init_kern_translation_table()
 {
-/* Deconnexion de la MMU
- */
-
 /* Initialisation de la table de
  * niveau 1, à partir de l'adresse
  * specifiee
+ *
+ * ALGO :
+ * On remplit la table de premier niveau entrée par entrée.
+ * Pour les adresses traduites, on crée à chaque fois la table
+ * de second niveau associée
+ * Pour les adresses non translatees, l'entree associée dans la table
+ * de premier niveau vaut 0 (translation fault)
+ *
+ * Pour cela, on parcours la table des adresses de 1er niveau
+ * on calcule la premiere adresse virtuelle associee à cette zone
+ * on charge dans la table de premier niveau le pointeur (en fait le "numero"
+ *  de la table de niveau 2 associee (currentSecondaryTable_beg_addr)
+ * on charge ensuite successivement les entrees des tables de niveau 2
+ *  à l'endroit qui va bien
+ *
  */
-	uint32_t primaryTable_flag = 0x1;
+    uint32_t primaryTable_flag = 0x1;
 	uint32_t primaryTable_transErrorFlag = 0x0;
-	uint32_t device_flag = 0x2000047E;
+    uint32_t device_flag = 0x0017;
+    uint32_t normal_flag = 0x0052;
 
 	//Adresse de la table de second niveau actuelle
 	uint32_t currentSecondaryTable_beg_addr = SECON_LVL_TT_START_ADDR;
 	uint32_t addr;
-	for(addr=FIRST_LVL_TT_START_ADDR; addr<FIRST_LVL_TT_START_ADDR+FIRST_LVL_TT_SIZE; addr+=4)
+    for(addr=FIRST_LVL_TT_START_ADDR; addr<FIRST_LVL_TT_START_ADDR+FIRST_LVL_TT_SIZE; addr+=4 /*On remplit 32bits par 32bits*/)
 	{			
 		//Translation d'adresse
 		//On determine la case de
 		//la table de premier niveau
-		uint32_t currentVirtualAddr = addr<<20;
-		uint32_t tableEntry;
-		if(	(currentVirtualAddr >= NO_TRANS_BEG_ADDR1 &&
-			currentVirtualAddr < NO_TRANS_END_ADDR1) ||
-			(currentVirtualAddr >= NO_TRANS_BEG_ADDR2 &&
-			currentVirtualAddr < NO_TRANS_END_ADDR2) )
+        uint32_t currentVirtualAddr = (addr-FIRST_LVL_TT_START_ADDR)<<18;
+        uint32_t primaryTableEntry;
+        int32_t addrInSecTable;
+        if(	currentVirtualAddr >= NO_TRANS_BEG_ADDR1 &&
+            currentVirtualAddr < NO_TRANS_END_ADDR1)
 		{
 			//Dans cette zone les adresses physiques
 			// correspondent aux adresses logiques
+            primaryTableEntry = (currentSecondaryTable_beg_addr)|primaryTable_flag;
 
-			int32_t addrInSecTable;
-			for(addrInSecTable = 0;
+            //On charge la table des pages de second niveau
+            for(addrInSecTable = currentSecondaryTable_beg_addr;
 				addrInSecTable<currentSecondaryTable_beg_addr+SECON_LVL_TT_SIZE;
 				addrInSecTable+=4)
 			{
-				uint32_t secTableEntry = currentVirtualAddr^device_flag;
+                //La translation de 10 (au lieu de 12) evite la division par 4
+                uint32_t secTableEntry = currentVirtualAddr
+                                          | ((addrInSecTable-currentSecondaryTable_beg_addr) << 10)
+                                          | normal_flag;
 				PUT32(addrInSecTable,secTableEntry);
 			}
 			//On met a jour l'adresse de la table de second niveau :
 			//comme on vient de remplir la table precedente, on pousse
 			//l'adresse de la taille d'une table
-			currentSecondaryTable_beg_addr += SECON_LVL_TT_SIZE; 
-		} else {
-			tableEntry=primaryTable_transErrorFlag;
+            currentSecondaryTable_beg_addr += SECON_LVL_TT_SIZE;
+
+        } else if(currentVirtualAddr >= NO_TRANS_BEG_ADDR2 &&
+                  currentVirtualAddr < NO_TRANS_END_ADDR2) {
+            //Dans cette zone les adresses physiques
+            // correspondent aux adresses logiques
+            primaryTableEntry = (currentSecondaryTable_beg_addr)|primaryTable_flag;
+
+            //On charge la table des pages de second niveau
+            for(addrInSecTable = currentSecondaryTable_beg_addr;
+                addrInSecTable<currentSecondaryTable_beg_addr+SECON_LVL_TT_SIZE;
+                addrInSecTable+=4)
+            {
+                //La translation de 10 (au lieu de 12) evite la division par 4
+                uint32_t secTableEntry = currentVirtualAddr
+                                          | ((addrInSecTable-currentSecondaryTable_beg_addr) << 10)
+                                          | device_flag;
+                PUT32(addrInSecTable,secTableEntry);
+            }
+            //On met a jour l'adresse de la table de second niveau :
+            //comme on vient de remplir la table precedente, on pousse
+            //l'adresse de la taille d'une table
+            currentSecondaryTable_beg_addr += SECON_LVL_TT_SIZE;
+
+        } else {
+            primaryTableEntry=primaryTable_transErrorFlag;
 		}
-		PUT32(addr, tableEntry);
+        PUT32(addr, primaryTableEntry);
 	}
 	return 0;
 }
