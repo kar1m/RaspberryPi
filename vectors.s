@@ -50,8 +50,8 @@ reset:
     bl kmain
 
 hang: b hang
-swi : b SWIHandler
 undefined:	 b undefined
+swi:	 b SWIHandler
 prefetch:	b prefetch
 data:	 b data
 unused:	b unused
