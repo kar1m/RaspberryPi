@@ -1,5 +1,6 @@
 #include "syscall.h"
 #include "../hardware/hw.h"
+#include "../sched_simple/sched.h"
 
 #define SYS_REBOOT_NUM 1
 #define SYS_WAIT_NUM 2
@@ -47,5 +48,8 @@ void doSysCallReboot()
 
 void doSysCallWait(unsigned int nbQuantums)
 {
+	current_process->nbQuantums = cpu_cycles() + nbQuantums;
+	current_process->ps_state = SLEEPING;
 	
+	ctx_switch_from_irq();
 }
