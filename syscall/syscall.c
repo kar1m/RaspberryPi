@@ -1,4 +1,5 @@
 #include "syscall.h"
+#include "../hardware/hw.h"
 
 #define SYS_REBOOT_NUM 1
 #define SYS_WAIT_NUM 2
@@ -6,7 +7,7 @@
 void sys_reboot()
 {
 	DISABLE_IRQ();
-	__asm("mov r0, %0" : : "r"(SYS_REBOOT_NUM) : "r0").
+	__asm("mov r0, %0" : : "r"(SYS_REBOOT_NUM) : "r0");
 	__asm("SWI 0" : : : "lr");
 	ENABLE_IRQ();
 }
