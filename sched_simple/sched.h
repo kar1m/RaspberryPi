@@ -55,5 +55,6 @@ void start_sched();
 void kill_current_process();
 void ctx_switch();
 void ctx_switch_from_irq();
+inline unsigned int cpu_cycles();
 
 #endif

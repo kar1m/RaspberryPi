@@ -1,7 +1,7 @@
 #include "sched.h"
-#include "phyAlloc.h"
+#include "../alloc_simple/phyAlloc.h"
 #include "stdlib.h"
-#include "hw.h"
+#include "../hardware/hw.h"
 
 void init_ctx(struct ctx_s* ctx, func_t f, unsigned int stack_size)
 {
