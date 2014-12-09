@@ -57,7 +57,7 @@ unsigned int init_kern_translation_table()
 void generateTestValues()
 {
 	PUT32(0x4FFFFC, 12344321);
-	PUT32(0x2000000, 20121992);
+    PUT32(0x20000000, 20121992);
 }
 
 int testVM()
