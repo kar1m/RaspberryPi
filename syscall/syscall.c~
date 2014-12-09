@@ -1,5 +1,4 @@
 #include "syscall.h"
-#include "stdlib.h"
 
 #define SYS_REBOOT_NUM 1
 #define SYS_WAIT_NUM 2
