@@ -101,12 +101,18 @@ void generateTestValues()
 
 int testVM()
 {
-    uint8_t * area1 = vMem_Alloc(1);
-    uint8_t * area2 = vMem_Alloc(2);
+	uint8_t ret = checkOccupation(0x600);
+	setOccupied(0x600);
+	uint8_t ret1 = checkOccupation(0x600);
+	setUnoccupied(0x600);
+	uint8_t ret2 = checkOccupation(0x600);
+    uint32_t * area1 = vMem_Alloc(1);
+    uint32_t * area2 = vMem_Alloc(2);
     vMem_Free(area2,2);
-    uint8_t * area3 = vMem_Alloc(2);
+    uint32_t * area3 = vMem_Alloc(2);
     vMem_Free(area1,1);
-    vMem_Free(area3,2);
+	uint32_t * area4 = vMem_Alloc(4);
+	uint32_t * area5 = vMem_Alloc(1);
     return 0;
 }
 
@@ -140,22 +146,28 @@ void configure_mmu_C()
 	__asm volatile("mcr p15, 0, %[r], c3, c0, 0" : : [r] "r" (0x3));
 }
 
-uint8_t* vMem_Alloc(unsigned int nbPages)
+uint32_t* vMem_Alloc(unsigned int nbPages)
 {
     /* On raisonne en PAGE, mais on renvoie une adresse */
-    uint8_t addrMem = NULL;
-	uint32_t noPage = findFirstUnoccupied(0);
+    uint32_t addrMem = NULL;
+	int32_t noPage = 0;
+	uint32_t nextPage;
+	//On verifie que toutes les pages sont disponibles
+	//Donc que l'espace tant que l'espace est occupe
+	do {
+		noPage = findFirstUnoccupied(noPage);
+		if(noPage==-1)
+			//On est arrive au bout de l'espace
+			return NULL;
+		if(!checkRangeOccupation(noPage,noPage+nbPages))
+		{
+			break;
+		}
+		noPage = findFirstOccupied((uint32_t) noPage);
+	} while(noPage!=-1);
+	
 	if(noPage==-1)
 		return NULL;
-	//On verifie que toutes les pages sont disponibles
-    while(noPage!=-1 && !checkRangeOccupation(noPage,noPage+nbPages))
-	{
-		if(noPage+nbPages>PAGE_COUN)
-			//Defaut d'allocation, aucune page trouvee
-			return NULL;
-		noPage = findFirstUnoccupied(noPage+nbPages);
-		
-	}
 	//On a notre plage de pages
 	//On charge en retour l'adresse initiale
 	addrMem = noPage*PAGE_SIZE;
@@ -166,16 +178,16 @@ uint8_t* vMem_Alloc(unsigned int nbPages)
 		noCurrentPage<noPage+nbPages;
 		noCurrentPage++)
 	{
-		setOccupied(noPage);
+		setOccupied(noCurrentPage);
 	}
 	return addrMem;	
 }
 
-void vMem_Free(uint8_t* ptr, unsigned int nbPages)
+void vMem_Free(uint32_t* ptr, unsigned int nbPages)
 {
     /* On raisonne en PAGE, mais on prend une adresse en param */
-    uint8_t currentPage;
-    for(currentPage = (uint8_t) ptr/PAGE_SIZE;currentPage<(uint8_t) ptr/PAGE_SIZE+nbPages;nbPages++)
+    uint32_t currentPage;
+    for(currentPage = (uint32_t) ptr/PAGE_SIZE;currentPage<(uint32_t) ptr/PAGE_SIZE+nbPages;currentPage++)
     {
         setUnoccupied(currentPage);
     }
@@ -194,7 +206,7 @@ int32_t findFirstUnoccupied(uint32_t noPageDebut)
         mais il faudrait raisonner en @ pour la perf*/
     uint32_t currPage;
 	uint8_t unoccFind = 0;
-    for(currPage=+noPageDebut;
+    for(currPage=noPageDebut;
         currPage<PAGE_COUN;
         currPage++)
 	{
@@ -205,19 +217,44 @@ int32_t findFirstUnoccupied(uint32_t noPageDebut)
         }
 	}
 	if(unoccFind)
-        return currPage;
+        	return currPage;
 	else
 		return -1;
 }
+
+int32_t findFirstOccupied(uint32_t noPageDebut)
+{
+    /* On raisonne en PAGE
+        mais il faudrait raisonner en @ pour la perf*/
+    uint32_t currPage;
+	uint8_t occFind = 0;
+    for(currPage=noPageDebut;
+        currPage<PAGE_COUN;
+        currPage++)
+	{
+        if(checkOccupation(currPage))
+        {
+            occFind = 1;
+            break;
+        }
+	}
+	if(occFind)
+        	return currPage;
+	else
+		return -1;
+}
+
 int checkRangeOccupation(uint32_t pageBegin, uint32_t pageEnd)
 {
     /* On raisonne en PAGE */
     uint32_t currentPage;
 	for(currentPage=pageBegin;currentPage<pageEnd;currentPage++)
-		if(!checkOccupation(currentPage))
-			return 0;
+		//Il suffit qu'une seule page soit occupee
+		//pour faire echouer la procedure
+		if(checkOccupation(currentPage))
+			return 1;
 	
-	return 1;
+	return 0;
 }
 
 int checkOccupation(uint32_t noPage)
@@ -226,7 +263,7 @@ int checkOccupation(uint32_t noPage)
     uint32_t* occupTableAddr = noPageToPageLineAdress(noPage);
 	uint8_t occupTableOffs = noPage%8;
 	uint8_t occupModifierLine = 1 << occupTableOffs;
-	return ((*occupTableAddr | occupModifierLine)%2);		
+	return ((*occupTableAddr & occupModifierLine));		
 }
 
 void setOccupied(uint32_t noPage)
@@ -244,7 +281,7 @@ void setUnoccupied(uint32_t noPage)
     uint32_t* occupTableAddr = noPageToPageLineAdress(noPage);
     uint8_t occupTableOffs = noPage%8;
     uint8_t occupModifierLine = 255
-                                & !(1 << occupTableOffs);
+                                & ~(1 << occupTableOffs);
 	*occupTableAddr = *occupTableAddr & occupModifierLine;
 }
 
