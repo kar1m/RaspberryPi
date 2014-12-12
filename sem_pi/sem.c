@@ -34,3 +34,16 @@ void sem_down(struct sem_s* sem)
 		//ctx_switch_from_irq();
 	}
 }
+
+void mtx_init(struct mtx_s* mutex);
+{
+	mutex->compteur = 1;
+}
+void mtx_lock(struct mtx_s* mutex)
+{
+	
+}
+void mtx_unlock(struct mtx_s* mutex)
+{
+
+}

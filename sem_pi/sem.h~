@@ -9,8 +9,19 @@ typedef struct sem_s{
 	pcb_s** fileAttente; //file d'attente
 } sem_s;
 
-void sem_init(struct sem_s* sem, unsigned int val);
+typedef struct mtx_s{
+	int compteur = 1; //Compteur de mutex
+	pcb_s** fileAttente; //file d'attente
+} mtx_s;
+
+//SEMAPHORES
+void sem_init(struct sem_s* sem, int val);
 void sem_up(struct sem_s* sem);
 void sem_down(struct sem_s* sem);
+//MUTEX
+void mtx_init(struct mtx_s* mutex);
+void mtx_lock(struct mtx_s* mutex);
+void mtx_unlock(struct mtx_s* mutex);
+
 int sizeFile;
 #endif

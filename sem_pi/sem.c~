@@ -31,6 +31,19 @@ void sem_down(struct sem_s* sem)
 		// Blocage du processus appelant 
 		current_process->ps_state = WAITING;
 		sem->fileAttente[sizeFile++] = current_process;
-		ctx_switch_from_irq();
+		//ctx_switch_from_irq();
 	}
+}
+
+void mtx_init(struct mtx_s* mutex);
+{
+
+}
+void mtx_lock(struct mtx_s* mutex)
+{
+
+}
+void mtx_unlock(struct mtx_s* mutex)
+{
+
 }
