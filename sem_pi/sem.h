@@ -6,7 +6,7 @@
 #include "stdlib.h"
 
 typedef struct sem_s{
-	unsigned int currentPC; //Compteur d'instruction courant
+	unsigned int compteur; //Compteur de semaphore
 	unsigned int currentSP; //Pointeur de pile courant
 } sem_s;
 

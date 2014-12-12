@@ -1,5 +1,5 @@
 #include "stdlib.h"
-#include "./sched_simple/sched.h"
+#include "./sched_fixed_priority/sched_fixed.h"
 #include "./hardware/hw.h"
 //#include "syscall/syscall.h"
 
