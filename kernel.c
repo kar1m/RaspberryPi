@@ -1,17 +1,18 @@
 #include "stdlib.h"
 #include "./sched_fixed_priority/sched_fixed.h"
 #include "./hardware/hw.h"
-//#include "syscall/syscall.h"
+#include "./sem_pi/sem.h"
+
+sem_s bloc,test;
 
 void funcA()
 {
     int cptA = 0;
-
+	
     while (1) {
 	int i,j;
-	for (i=0; i<200000; i++);
+	sem_down(&bloc);
 	led_on();
-	for (j=0; j<200000; j++);
 	led_off();
     }
 }
@@ -22,9 +23,8 @@ void funcB()
 int clt =0;
 while (1) {
 	int i,j;
-	for (i=0; i<100000; i++);
+	sem_down(&test);
 	led_on();
-	for (j=0; j<100000; j++);
 	led_off();
 	clt++;
 
@@ -33,12 +33,12 @@ while (1) {
 
 void funcC()
 {
+sem_up(&test);
+sem_up(&bloc);
 int clt =0;
 while (clt < 10) {
 	int i,j;
-	for (i=0; i<100000; i++);
 	led_on();
-	for (j=0; j<100000; j++);
 	led_off();
 	clt++;
     }
@@ -48,7 +48,8 @@ while (clt < 10) {
 int kmain ( void )
 {
   init_hw();
-     
+    sem_init(&bloc,0);
+	sem_init(&test,0);
     current_process->pt_fct = NULL;
     int stack_size = STACK_SIZE;
     create_process_fixed(funcB, NULL, stack_size,LOW);

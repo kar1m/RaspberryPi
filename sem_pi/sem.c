@@ -1,9 +1,36 @@
-#include "sched.h"
-#include "../alloc_simple/phyAlloc.h"
-#include "stdlib.h"
-#include "../hardware/hw.h"
+#include "sem.h"
 
-void sem_init(struct sem_s* sem, unsigned int val);
+void sem_init(struct sem_s* sem, int val)
 {
+	sem->compteur = val;
+}
 
+void sem_up(struct sem_s* sem)
+{
+	sem->compteur = sem->compteur + 1;
+	if (sem->compteur <= 0)
+	{
+		// Déblocage d'un processus dans la file d'attente
+		sem->fileAttente[0]->ps_state = READY;
+		// Réaménagement de la file d'attente
+		int index = 0;
+		pcb_s* next = sem->fileAttente[1]; 
+		while (next != NULL)
+		{
+			sem->fileAttente[index++] = sem->fileAttente[index];
+			next = sem->fileAttente[index+1]; 
+		}
+	} 
+}
+
+void sem_down(struct sem_s* sem)
+{
+	sem->compteur = sem->compteur - 1;
+	if (sem->compteur < 0)
+	{
+		// Blocage du processus appelant 
+		current_process->ps_state = WAITING;
+		sem->fileAttente[sizeFile++] = current_process;
+		//ctx_switch_from_irq();
+	}
 }
