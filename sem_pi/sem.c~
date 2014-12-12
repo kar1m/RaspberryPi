@@ -3,7 +3,4 @@
 #include "stdlib.h"
 #include "../hardware/hw.h"
 
-void sem_init(struct sem_s* sem, unsigned int val);
-{
 
-}
