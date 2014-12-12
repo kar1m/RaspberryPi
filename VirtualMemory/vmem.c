@@ -40,8 +40,8 @@ unsigned int init_kern_translation_table()
         uint32_t currentVirtualAddr = (addr-FIRST_LVL_TT_START_ADDR)<<18;
         uint32_t primaryTableEntry;
         int32_t addrInSecTable;
-        if(	currentVirtualAddr >= NO_TRANS_BEG_ADDR1 &&
-            currentVirtualAddr < NO_TRANS_END_ADDR1)
+        if(	(currentVirtualAddr >= NO_TRANS_BEG_ADDR1 &&
+            currentVirtualAddr < NO_TRANS_END_ADDR1) )
 		{
 			//Dans cette zone les adresses physiques
 			// correspondent aux adresses logiques
@@ -101,15 +101,13 @@ void generateTestValues()
 
 int testVM()
 {
-	int result = 0; 
-	int* addrResult = 0x4FFFFC;
-	if(*addrResult==1234321)
-		result+=1;
-
-	addrResult = 0x20000000;
-	if(*addrResult==20121992)
-		result+=10;
-	return result;
+    uint8_t * area1 = vMem_Alloc(1);
+    uint8_t * area2 = vMem_Alloc(2);
+    vMem_Free(area2,2);
+    uint8_t * area3 = vMem_Alloc(2);
+    vMem_Free(area1,1);
+    vMem_Free(area3,2);
+    return 0;
 }
 
 void start_mmu_C()
@@ -144,12 +142,13 @@ void configure_mmu_C()
 
 uint8_t* vMem_Alloc(unsigned int nbPages)
 {
-	uint8_t addrMem = NULL;
+    /* On raisonne en PAGE, mais on renvoie une adresse */
+    uint8_t addrMem = NULL;
 	uint32_t noPage = findFirstUnoccupied(0);
 	if(noPage==-1)
 		return NULL;
 	//On verifie que toutes les pages sont disponibles
-	while(noPage!=-1 && checkRangeOccupation(noPage,noPage+nbPages))
+    while(noPage!=-1 && !checkRangeOccupation(noPage,noPage+nbPages))
 	{
 		if(noPage+nbPages>PAGE_COUN)
 			//Defaut d'allocation, aucune page trouvee
@@ -163,7 +162,7 @@ uint8_t* vMem_Alloc(unsigned int nbPages)
 	
 	//Remplissage de la table des pages
 	uint32_t noCurrentPage;
-	for(	noCurrentPage=noPage;
+    for(noCurrentPage=noPage;
 		noCurrentPage<noPage+nbPages;
 		noCurrentPage++)
 	{
@@ -174,47 +173,46 @@ uint8_t* vMem_Alloc(unsigned int nbPages)
 
 void vMem_Free(uint8_t* ptr, unsigned int nbPages)
 {
-	
+    /* On raisonne en PAGE, mais on prend une adresse en param */
+    uint8_t currentPage;
+    for(currentPage = (uint8_t) ptr/PAGE_SIZE;currentPage<(uint8_t) ptr/PAGE_SIZE+nbPages;nbPages++)
+    {
+        setUnoccupied(currentPage);
+    }
 	
 }
 
 uint32_t* getPageDescriptor(uint32_t noPage)
 {
-	return noPage+SECON_LVL_TT_START_ADDR;
+    /* On raisonne en PAGE */
+    return noPage+SECON_LVL_TT_START_ADDR;
 }
 
 int32_t findFirstUnoccupied(uint32_t noPageDebut)
 {
-	uint32_t* currOccupTableAddr;
-	uint8_t currOffsetInLine = 0;
+    /* On raisonne en PAGE
+        mais il faudrait raisonner en @ pour la perf*/
+    uint32_t currPage;
 	uint8_t unoccFind = 0;
-	for(	currOccupTableAddr=FRAMES_OCCUP_TABLE_ADDR+noPageDebut/8;
-		currOccupTableAddr<0x20000000;
-		currOccupTableAddr++)
+    for(currPage=+noPageDebut;
+        currPage<PAGE_COUN;
+        currPage++)
 	{
-		if(*currOccupTableAddr!=255)
-		{
-			for(	currOffsetInLine=0;
-				currOffsetInLine<8;
-				currOffsetInLine++)
-			{
-				uint32_t noPage =((uint32_t) currOccupTableAddr - FRAMES_OCCUP_TABLE_ADDR)*8+currOffsetInLine;
-				if(!checkOccupation(noPage))
-				{
-					unoccFind = 1;
-					break;
-				}
-			}
-		}
+        if(!checkOccupation(currPage))
+        {
+            unoccFind = 1;
+            break;
+        }
 	}
 	if(unoccFind)
-		return currOccupTableAddr+currOffsetInLine-FRAMES_OCCUP_TABLE_ADDR;
+        return currPage;
 	else
 		return -1;
 }
 int checkRangeOccupation(uint32_t pageBegin, uint32_t pageEnd)
 {
-	uint32_t currentPage;
+    /* On raisonne en PAGE */
+    uint32_t currentPage;
 	for(currentPage=pageBegin;currentPage<pageEnd;currentPage++)
 		if(!checkOccupation(currentPage))
 			return 0;
@@ -224,8 +222,8 @@ int checkRangeOccupation(uint32_t pageBegin, uint32_t pageEnd)
 
 int checkOccupation(uint32_t noPage)
 {	
-	uint32_t* occupTableLine = noPage/8;
-	uint32_t* occupTableAddr = occupTableLine+FRAMES_OCCUP_TABLE_ADDR;
+    /* On raisonne entre PAGE & ADRESSE */
+    uint32_t* occupTableAddr = noPageToPageLineAdress(noPage);
 	uint8_t occupTableOffs = noPage%8;
 	uint8_t occupModifierLine = 1 << occupTableOffs;
 	return ((*occupTableAddr | occupModifierLine)%2);		
@@ -233,19 +231,44 @@ int checkOccupation(uint32_t noPage)
 
 void setOccupied(uint32_t noPage)
 {
-	uint32_t* occupTableLine = noPage/8;
-	uint32_t* occupTableAddr = occupTableLine+FRAMES_OCCUP_TABLE_ADDR;
+    /* On raisonne entre PAGE & ADRESSE */
+    uint32_t* occupTableAddr = noPageToPageLineAdress(noPage);
 	uint8_t occupTableOffs = noPage%8;
 	uint8_t occupModifierLine = 1 << occupTableOffs;
 	*occupTableAddr = *occupTableAddr | occupModifierLine;
 }
 
-void setUnoccupied(uint32_t pageAddr)
+void setUnoccupied(uint32_t noPage)
 {
-	
-	uint32_t* occupTableLine = pageAddr/8;
-	uint32_t* occupTableAddr = occupTableLine+FRAMES_OCCUP_TABLE_ADDR;
-	uint8_t occupTableOffs = pageAddr%8;
-	uint8_t occupModifierLine = 255-2^occupTableOffs;
+    /* On raisonne entre PAGE & ADRESSE */
+    uint32_t* occupTableAddr = noPageToPageLineAdress(noPage);
+    uint8_t occupTableOffs = noPage%8;
+    uint8_t occupModifierLine = 255
+                                & !(1 << occupTableOffs);
 	*occupTableAddr = *occupTableAddr & occupModifierLine;
+}
+
+void initPagesTable()
+{
+    /* On bloque toutes les pages utilisees par le systeme
+     * Ici on raisonne en @ & PAGE
+    */
+
+    uint32_t currentPage;
+    for(currentPage=NO_TRANS_BEG_ADDR1/PAGE_SIZE;currentPage<(NO_TRANS_END_ADDR1-0x100000)/PAGE_SIZE;currentPage++)
+    {
+        setOccupied(currentPage);
+    }
+
+    for(currentPage=NO_TRANS_BEG_ADDR2/PAGE_SIZE;currentPage<NO_TRANS_END_ADDR2/PAGE_SIZE;currentPage++)
+    {
+        setOccupied(currentPage);
+    }
+}
+
+uint32_t* noPageToPageLineAdress(uint32_t noPage)
+{
+    uint32_t occupTableLine = noPage/8;
+    uint32_t occupTableAddr = (occupTableLine+FRAMES_OCCUP_TABLE_ADDR);
+    return occupTableAddr;
 }

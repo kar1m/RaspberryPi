@@ -22,12 +22,12 @@
 
 //Adresses limites de translation
 #define NO_TRANS_BEG_ADDR1 0x0
-#define NO_TRANS_END_ADDR1 0x500000
+#define NO_TRANS_END_ADDR1 0x700000
 #define NO_TRANS_BEG_ADDR2 0x20000000
 #define NO_TRANS_END_ADDR2 0x21000000
 
 //Table d'occupation des frames
-#define FRAMES_OCCUP_TABLE_ADDR 0x1FFBE00
+#define FRAMES_OCCUP_TABLE_ADDR 0x4FBE00
 #define FRAMES_OCCUP_TABLE_SIZE 0x4200
 
 unsigned int init_kern_translation_table();
@@ -38,11 +38,14 @@ void configure_mmu_C();
 uint8_t* vMem_Alloc(unsigned int nbPages);
 void vMem_Free(uint8_t* ptr, unsigned int nbPages);
 extern void PUT32( unsigned int, unsigned int);
-void setOccupied(uint32_t pageAddr);
-void setUnoccupied(uint32_t pageAddr);
+void setOccupied(uint32_t noPage);
+void setUnoccupied(uint32_t noPage);
 int32_t findFirstUnoccupied(uint32_t noPageDebutRecherche);
 uint32_t* getPageDescriptor(uint32_t noPage);
 int checkRangeOccupation(uint32_t noPageDebut, uint32_t noPageFin);
 int checkOccupation(uint32_t noPage);
+void initPagesTable();
+uint32_t* noPageToPageLineAdress(uint32_t noPage);
+
 
 #endif
