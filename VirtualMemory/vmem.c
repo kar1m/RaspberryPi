@@ -147,13 +147,27 @@ void configure_mmu_C()
 }
 
 uint32_t* vMem_Alloc(unsigned int nbPages)
+/* Algo : 
+ * 1 : trouver un espace
+ * 2 : considerer cet espace comme plein
+ * 
+ * 1 > On cherche la premiere page non occupee
+ * on checke si le range suivant cette page est suffisament grand
+ * 	si oui, l'espace est valide
+ * 	si non, on determine le prochain espace occupe (pour ne
+ * pas tourner en rond), et on revient au debut cad on cherche le
+ * premier espace non occupe a partir de la
+ * Et ce jusqu'au bout de l'espace d'adressage physique (-1)
+ *
+ * 2 > On ecrit sequentiellement dans la table des pages que les
+ * pages que l'on vient de trouver sont occupees
+ */
 {
     /* On raisonne en PAGE, mais on renvoie une adresse */
     uint32_t addrMem = NULL;
 	int32_t noPage = 0;
 	uint32_t nextPage;
-	//On verifie que toutes les pages sont disponibles
-	//Donc que l'espace tant que l'espace est occupe
+	
 	do {
 		noPage = findFirstUnoccupied(noPage);
 		if(noPage==-1)
