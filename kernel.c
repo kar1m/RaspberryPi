@@ -1,44 +1,28 @@
 #include "stdlib.h"
 #include "./sched_simple/sched.h"
-#include "./hardware/hw.h"
-//#include "syscall/syscall.h"
+#include "syscall/syscall.h"
 
 void funcA()
 {
     int cptA = 0;
-
     while (1) {
-		int i,j;
-		for (i=0; i<200000; i++);
-		led_on();
-		for (j=0; j<200000; j++);
-		led_off();
+	cptA++;
     }
 }
 
 void funcB()
 {
 
-int clt =0;
+	int clt =0;
 	while (1) {
-		int i,j;
-		for (i=0; i<100000; i++);
-		led_on();
-		for (j=0; j<100000; j++);
-		led_off();
-		clt++;
+		clt += 5;
 	}
 }
 
 void funcC()
 {
-int clt =0;
+	int clt =0;
 	while (clt < 10) {
-		int i,j;
-		for (i=0; i<100000; i++);
-		led_on();
-		for (j=0; j<100000; j++);
-		led_off();
 		clt++;
     }
 }
@@ -46,7 +30,7 @@ int clt =0;
 //------------------------------------------------------------------------
 int kmain ( void )
 {
-  	init_hw();
+    init_hw();
      
     current_process->pt_fct = NULL;
     int stack_size = STACK_SIZE;
