@@ -323,3 +323,64 @@ uint32_t* noPageToPageLineAdress(uint32_t noPage)
     uint32_t occupTableAddr = (occupTableLine+FRAMES_OCCUP_TABLE_ADDR);
     return occupTableAddr;
 }
+
+uint32_t* createMemoryArea()
+/* Algo :
+ *	Les tables primaires et secondaires sont allouees
+ * dans un espace ou les adresses physiques sont les
+ * memes que les adresses logiques
+*/
+{
+	uint32_t* addrPrimaryTable;
+	addrPrimaryTable = vMem_Alloc(1);
+
+	return addrPrimaryTable;
+}
+
+uint8_t InsertEntryInSecondaryTable(uint32_t* primaryTableAddr,
+									uint32_t* physicalAddr,
+									uint32_t* desirededLogicalAddr, 
+									uint32_t primaryFlags,
+									uint32_t secondaryFlags,
+									uint8_t rewriteIfExisting)
+/* Algo :
+ *	On calcule d'abord dans quelle entree de la table primaire
+ * puis dans quelle entree de la table secondaire on doit ecrire
+ * l'@ physique
+ */ 
+{
+	uint32_t* primaryEntryAddr = GET_PRIMARY_ENTRY_ADDR(primaryEntryAddr,desirededLogicalAddr);
+	uint32_t translationFaultMask = 0x2; //Soit 00..0011
+	if( IS_PRIMARY_TRANSLATION_FAULT(*primaryEntryAddr) )
+	{
+		*primaryEntryAddr = ((uint32_t)FindSpaceForNewSecondaryTable(primaryTableAddr) & (0xFFFFFC00 | primaryFlags));
+	}
+	
+	uint32_t * secondaryEntryAddr = (uint32_t*) GET_SECONDARY_ENTRY_ADDR(GET_SECONDARY_TABLE_ADDR(*primaryEntryAddr),desirededLogicalAddr);
+	
+	if(IS_SECONDARY_TRANSLATION_FAULT(secondaryEntryAddr))
+	{
+		*secondaryEntryAddr = ((uint32_t) physicalAddr) & (0xFFFFF000 | secondaryFlags);
+		return ADD_TT_SUCCESS;
+	} else {
+		if(rewriteIfExisting)
+			*secondaryEntryAddr = ((uint32_t) physicalAddr) & (0xFFFFF000 | secondaryFlags);
+		return ADD_TT_ERR_LOGICAL_ADDR_EXISTING;
+	}
+}
+
+uint32_t* FindSpaceForNewSecondaryTable(uint32_t* primaryTableAddr)
+{
+	uint32_t* currentPrimaryTableAddr;
+	uint32_t maxAddrForSecondaryTable = 0;
+	for(currentPrimaryTableAddr=primaryTableAddr;
+		currentPrimaryTableAddr<primaryTableAddr+FIRST_LVL_TT_SIZE;
+		currentPrimaryTableAddr+=4)
+	{
+		if(GET_SECONDARY_TABLE_ADDR(*primaryTableAddr)>maxAddrForSecondaryTable)
+		{
+			maxAddrForSecondaryTable = GET_SECONDARY_TABLE_ADDR(*primaryTableAddr);
+		}
+	}
+	return (uint32_t*)(maxAddrForSecondaryTable+SECON_LVL_TT_SIZE);
+}
