@@ -10,7 +10,6 @@ void sys_reboot()
 	DISABLE_IRQ();
 	__asm("mov r0, %0" : : "r"(SYS_REBOOT_NUM) : "r0");
 	__asm("SWI 0" : : : "lr");
-	ENABLE_IRQ();
 }
 
 void sys_wait(unsigned int nbQuantums)
@@ -19,7 +18,6 @@ void sys_wait(unsigned int nbQuantums)
   	__asm("mov r0, %0" : : "r"(SYS_WAIT_NUM) : "r0");
   	__asm("mov r1, sp");
   	__asm("SWI 0" : : : "lr");
-  	ENABLE_IRQ();
 }
 
 void SWIHandler(unsigned int sysCallNum, unsigned int * params)
@@ -32,6 +30,7 @@ void SWIHandler(unsigned int sysCallNum, unsigned int * params)
 			doSysCallWait(params[1]);
 			break;
 	}
+	
 }
 
 void doSysCallReboot()

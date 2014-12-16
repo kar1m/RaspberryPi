@@ -4,7 +4,7 @@ wh cmd 12
 target remote:1234
 b kmain
 b kernel.c:7
-b kernel.c:16
+b kernel.c:11
 b kernel.c:37
 b sched_fixed.c:110
 b sched_fixed.c:186

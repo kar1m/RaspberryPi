@@ -8,7 +8,7 @@
 void funcA()
 {
     int cptA = 0;
-
+	sys_reboot();
     while (1) {
 	cptA++;
     }
