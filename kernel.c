@@ -1,52 +1,42 @@
 #include "stdlib.h"
-#include "./sched_fixed_priority/sched_fixed.h"
 #include "./hardware/hw.h"
-#include "./sem_pi/sem.h"
+//#include "./sem_pi/sem.h"
+#include "./sched_simple/sched.h"
+#include "syscall/syscall.h"
 
-sem_s bloc,test;
 
 void funcA()
 {
     int cptA = 0;
-	
+
     while (1) {
-	int i,j;
-	sem_down(&bloc);
-	led_on();
-	led_off();
+	cptA++;
     }
 }
 
 void funcB()
 {
 
-int clt =0;
-while (1) {
-	int i,j;
-	sem_down(&test);
-	led_on();
-	led_off();
-	clt++;
+	int clt =0;
+	while (1) {
+		clt += 5;
 
 	}
 }
 
 void funcC()
 {
-sem_up(&test);
-sem_up(&bloc);
-int clt =0;
-while (clt < 10) {
-	int i,j;
-	led_on();
-	led_off();
-	clt++;
+	int clt =0;
+	while (clt < 10) {
+		clt++;
+
     }
 }
 
 //------------------------------------------------------------------------
 int kmain ( void )
 {
+
 // SEQUENCE INITIALISATION
 	/*init_kern_translation_table();
 	configure_mmu_C();
@@ -57,17 +47,17 @@ int kmain ( void )
 	p2 = vmem_alloc(5);
 	vmem_free(p1, 10);
 	p3 = vmem_alloc(10);*/
-  init_hw();
-    sem_init(&bloc,0);
-	sem_init(&test,0);
-    current_process->pt_fct = NULL;
+
+    init_hw();
+     
+
     int stack_size = STACK_SIZE;
-    create_process_fixed(funcB, NULL, stack_size,LOW);
-    create_process_fixed(funcA, NULL, stack_size,MEDIUM);
-    create_process_fixed(funcC, NULL, stack_size,HIGH);
+    create_process(funcB, NULL, stack_size);
+    create_process(funcA, NULL, stack_size);
+    create_process(funcC, NULL, stack_size);
 
     start_sched();
-   // ctx_switch();
+
     while(1){}
     /* Pas atteignable vues nos 2 fonctions */
     return 0;

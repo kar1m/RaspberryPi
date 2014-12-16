@@ -104,7 +104,7 @@ void __attribute__ ((naked)) ctx_switch()
 /* 																/
 ------------------------------Utils------------------------------
 /																*/
-inline unsigned int cpu_cycles() { 
+unsigned int cpu_cycles() { 
 	unsigned int cycles;
 	asm volatile ("mrc p15, 0, %0, c15, c12, 1" : "=r" (cycles));
 	return cycles;
