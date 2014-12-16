@@ -48,9 +48,9 @@
 #define PRIMARY_TRANS_FAULT_2 0x0
 #define SECONDARY_TRANS_FAULT 0x0
 
-#define IS_PRIMARY_TRANSLATION_FAULT(descriptor) ( ((((uint32_t)descriptor) << 30) == (PRIMARY_TRANS_FAULT_1 << 30)) || ((((uint32_t) descriptor) << 30) == (PRIMARY_TRANS_FAULT_2 << 30)) )
+#define IS_PRIMARY_TRANS_FAULT(descriptor) ( ((((uint32_t)descriptor) << 30) == (PRIMARY_TRANS_FAULT_1 << 30)) || ((((uint32_t) descriptor) << 30) == (PRIMARY_TRANS_FAULT_2 << 30)) )
 
-#define IS_SECONDARY_TRANSLATION_FAULT(descriptor)  ((((uint32_t)descriptor) << 30) == (PRIMARY_TRANS_FAULT_1 << 30))
+#define IS_SECONDARY_TRANS_FAULT(descriptor)  ((((uint32_t)descriptor) << 30) == (PRIMARY_TRANS_FAULT_1 << 30))
 
 #define GET_PRIMARY_ENTRY_ADDR(primaryTableAddr,logicalAddr)	( primaryTableAddr + (((uint32_t)logicalAddr)>>20) )
 
@@ -61,14 +61,15 @@
 
 //Donnees pour les programmes
 #define INIT_STACK_POINTER 0x20FFFFFF
-#define HIPE_START 0x50000
-#define HIPE_END HIPE_START+SECON_LVL_TT_COUN*PAGE_SIZE*32
+#define HEAP_START 0x50000
+#define HEAP_END HEAP_START+SECON_LVL_TT_COUN*PAGE_SIZE*32
 
 
 //Structure utilisee pour la detection d'espace libre
 //en espace logique
 struct FreeSpace {
-    uint32_t* ptNextFreeSpace;
+    FreeSpace* ptNextFreeSpace;
+	uint32_t* addrSpace;
     uint32_t  nbPagesFree;
 };
 
@@ -172,12 +173,12 @@ uint32_t* CreateMemoryArea();
  * L'adresse retournee est celle de la table de niveau 1
  */
 
-uint8_t UpdateEntryInSecondaryTable(uint32_t* physicalAddr,
-									uint32_t* primaryTableAddr, 
-									uint32_t* desirededLogicalAddr,
-									uint32_t primaryFlags,
-									uint32_t secondaryFlags,
-									uint8_t rewriteIfExisting);
+uint8_t LinkLogAddrToPhyAddr(	uint32_t* physicalAddr,
+								uint32_t* primaryTableAddr, 
+								uint32_t* desirededLogicalAddr,
+								uint32_t primaryFlags,
+								uint32_t secondaryFlags,
+								uint8_t rewriteIfExisting);
 /* Permet d'ajouter a une table de translation une nouvelle page
  * ayant pour @physique physicalAddr
  * et pour @logique desirededLogicalAddr
@@ -232,6 +233,8 @@ void MiniInitFramesTable();
  * ATTENTION : afin d'optimiser l'allocation, les mini-frames sont de taille
  */
 
+void InitVMemAlloc();
+
 uint32_t* MiniAlloc(uint8_t nbMiniFrames);
 /* Alloue dans la zone des tables primaires et secondaires l'espace
  * pour nbMiniFrames et renvoie l'adresse de debut
@@ -241,4 +244,14 @@ uint8_t MiniFree(uint32_t* ptTable, uint8_t nbMiniFrames);
 /* Desalloue dans la zone des tables primaires et secondaires l'espace
  * pour nbMiniFrames et renvoie l'adresse de debut
  */
+
+void InitFirstEntries(uint32_t* primaryTableAddr);
+/* Initialise pour la table primaire d'un processus placee a
+ * primaryTableaAddr la non traduction des adresses systemes
+ */
+/*ATTENTION ! POUR L'INSTANT LES TRADUCTIONS VERS LES @PERIPHERIQUES
+ * SONT DESACTIVEES (TRANSLATION FAULT)
+ */
+
+
 #endif

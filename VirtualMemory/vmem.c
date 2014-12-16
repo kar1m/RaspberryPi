@@ -3,6 +3,8 @@
 
 unsigned int total=0;
 
+static FreeSpace firstFreeSpace;
+
 unsigned int init_kern_translation_table()
 {
 /* Initialisation de la table de
@@ -328,21 +330,21 @@ uint32_t* CreateMemoryArea()
 
     //On cherche une page libre pour la pile
     uint32_t* stackPhysicalAddr = (uint32_t*)findFirstUnoccupied(0)*PAGE_SIZE;
-    InsertEntryInSecondaryTable(addrPrimaryTable,
+    LinkLogAddrToPhyAddr(addrPrimaryTable,
                                 stackPhysicalAddr,
-                                INIT_STACK_POINTER-PAGE_SIZE+1,
+                                (uint32_t*)(INIT_STACK_POINTER-PAGE_SIZE+1),
                                 0x0,
                                 0);
 
 	return addrPrimaryTable;
 }
 
-uint8_t InsertEntryInSecondaryTable(uint32_t* primaryTableAddr,
-									uint32_t* physicalAddr,
-									uint32_t* desirededLogicalAddr, 
-									uint32_t primaryFlags,
-									uint32_t secondaryFlags,
-									uint8_t rewriteIfExisting)
+uint8_t LinkLogAddrToPhyAddr(	uint32_t* primaryTableAddr,
+								uint32_t* physicalAddr,
+								uint32_t* desirededLogicalAddr, 
+								uint32_t primaryFlags,
+								uint32_t secondaryFlags,
+								uint8_t rewriteIfExisting)
 /* Algo :
  *	On calcule d'abord dans quelle entree de la table primaire
  * puis dans quelle entree de la table secondaire on doit ecrire
@@ -351,14 +353,14 @@ uint8_t InsertEntryInSecondaryTable(uint32_t* primaryTableAddr,
 {
     uint32_t* primaryEntryAddr = GET_PRIMARY_ENTRY_ADDR(primaryTableAddr,desirededLogicalAddr);
 
-	if( IS_PRIMARY_TRANSLATION_FAULT(*primaryEntryAddr) )
+	if( IS_PRIMARY_TRANS_FAULT(*primaryEntryAddr) )
 	{
         *primaryEntryAddr = ((uint32_t)MiniAlloc(FRAMES_TT_SECON_TABLE_OCCUP) & (0xFFFFFC00 | primaryFlags));
 	}
 	
 	uint32_t * secondaryEntryAddr = (uint32_t*) GET_SECONDARY_ENTRY_ADDR(GET_SECONDARY_TABLE_ADDR(*primaryEntryAddr),desirededLogicalAddr);
 	
-	if(IS_SECONDARY_TRANSLATION_FAULT(secondaryEntryAddr))
+	if(IS_SECONDARY_TRANS_FAULT(secondaryEntryAddr))
 	{
 		*secondaryEntryAddr = ((uint32_t) physicalAddr) & (0xFFFFF000 | secondaryFlags);
 		return ADD_TT_SUCCESS;
@@ -529,14 +531,93 @@ uint8_t MiniFree(uint32_t* ptTable, uint8_t nbMiniFrames)
     }
 }
 
-uint32_t* FindFreeSpace(uint32_t nbPages)
+FreeSpace* FindVirtualSpace(uint32_t nbPages)
 {
+	FreeSpace* currentFreeSpace = &firstFreeSpace; 
+	do {
+		if((*currentFreeSpace).nbPagesFree > nbPages)
+			return currentFreeSpace;
+		else
+			currentFreeSpace = (*currentFreeSpace).ptNextFreeSpace;
+	} while(currentFreeSpace!=&firstFreeSpace)
+}
+
+uint32_t* GetVirtualSpace(uint32_t nbPages)
+{
+	FreeSpace* freeSpace = FindVirtualSpace(nbPages);
+	FillVirtualSpace(freeSpace,nbPages);
+	return;
+}
+
+void FillVirtualSpace(FreeSpace* freeSpace, uint32_t nbPages)
+{
+	if(nbPages >= (*freeSpace).nbPagesFree)
+	{
+		(*GetPrevious(freeSpace)).ptNextFreeSpace = (*freeSpace).ptNextFreeSpace;
+		//FREE(freeSpace) !!!!!!!
+	} else {
+		(*freeSpace).nbPagesFree -= nbPages;
+	}
+}
+
+void ReleaseVirtualSpace(uint32_t* logAddrToRealease, uint32_t nbPages)
+{
+	FreeSpace* nextFS = GetNextFreeSpace(logAddrToRealease);
+	FreeSpace* prevFS = GetPrevious(nextFS);
+	uint8_t createNewFS = 1;
+	if((*nextFS).addrSpace==logAddrToRealease+nbPages*PAGE_SIZE)
+	{
+		(*nextFS).addrSpace = logAddrToRealease;
+		(*nextFS).nbPagesFree += nbPages;
+
+		createNewFS = 0;
+	}
+	
+	if((*prevFS).addrSpace+(*prevFS).nbPagesFree*PAGE_SIZE==logAddrToRealease)
+	{
+		(*prevFS).nbPagesFree += nbPages;
+
+		createNewFS = 0;
+	}
+
+	if(createNewFS)
+	{		
+		FreeSpace* newFS = prevFS;		//FAUX!!!!!
+		(*newFS).nbPagesFree = nbPages;
+		(*newFS).addrSpace = logAddrToRealease;
+	}
 
 }
 
+FreeSpace* GetPrevious(FreeSpace* freeSpace)
+{
+	FreeSpace* currentSpace;
+	while((*currentSpace).ptNextFreeSpace!=freeSpace)
+	{
+		currentSpace = (*currentSpace).ptNextFreeSpace;
+	}
+}
+
+FreeSpace* GetNextFreeSpace(uint32_t* logAddrToRealease)
+{
+	FreeSpace* currentFS = &firstFreeSpace;
+	uint32_t* previousAddr = 0;
+	while((*currentFS).addrSpace<logAddrToRealease 
+			&& previousAddr<=(*currentFS).addrSpace)
+	{
+		previousAddr = (*currentFS).addrSpace+1;
+		currentFS = (*currentFS).ptNextFreeSpace;
+	}
+	return currentFS;
+}
+void InitVMemAlloc()
+{
+	firstFreeSpace.nbPagesFree = (HEAP_END-HEAP_START)/PAGE_SIZE;
+	firstFreeSpace.ptNextFreeSpace = &firstFreeSpace;
+}
 
 /*ATTENTION ! POUR L'INSTANT LES TRADUCTIONS VERS LES @PERIPHERIQUES
- * SONT DESACTIVEES (TRANSLATION FAULT)
+ * SONT DESACTIVEES (TRANS FAULT)
  */
 
 void InitFirstEntries(uint32_t* primaryTableAddr)
@@ -551,7 +632,7 @@ void InitFirstEntries(uint32_t* primaryTableAddr)
     uint32_t addr;
     for(addr=FIRST_LVL_TT_START_ADDR; addr<FIRST_LVL_TT_START_ADDR+FIRST_LVL_TT_SIZE; addr+=4 /*On remplit 32bits par 32bits*/)
     {
-        //Translation d'adresse
+        //TRANS d'adresse
         //On determine la case de
         //la table de premier niveau
         uint32_t currentVirtualAddr = (addr-FIRST_LVL_TT_START_ADDR)<<18;
