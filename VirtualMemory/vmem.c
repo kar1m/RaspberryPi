@@ -148,27 +148,15 @@ void configure_mmu_C()
 
 uint32_t* vMem_Alloc(unsigned int nbPages)
 /* Algo : 
- * 1 : trouver un espace
- * 2 : considerer cet espace comme plein
- * 
- * 1 > On cherche la premiere page non occupee
- * on checke si le range suivant cette page est suffisament grand
- * 	si oui, l'espace est valide
- * 	si non, on determine le prochain espace occupe (pour ne
- * pas tourner en rond), et on revient au debut cad on cherche le
- * premier espace non occupe a partir de la
- * Et ce jusqu'au bout de l'espace d'adressage physique (-1)
- *
- * 2 > On ecrit sequentiellement dans la table des pages que les
- * pages que l'on vient de trouver sont occupees
+ * 1> On cherche de l'espace logique
+ * 2> On cherche de l'espace physique
+ *      a chaque fois on linke l'espace logique avec l'espace physique
  */
 {
     /* On raisonne en PAGE, mais on renvoie une adresse */
     uint32_t addrMem = NULL;
-	int32_t noPage = 0;
-	uint32_t nextPage;
 	
-	do {
+    /*do {
 		noPage = findFirstUnoccupied(noPage);
 		if(noPage==-1)
 			//On est arrive au bout de l'espace
@@ -193,7 +181,7 @@ uint32_t* vMem_Alloc(unsigned int nbPages)
 		noCurrentPage++)
 	{
 		setOccupied(noCurrentPage);
-	}
+    }*/
 	return addrMem;	
 }
 
@@ -324,15 +312,27 @@ uint32_t* noPageToPageLineAdress(uint32_t noPage)
     return occupTableAddr;
 }
 
-uint32_t* createMemoryArea()
+
+
+
+
+uint32_t* CreateMemoryArea()
 /* Algo :
  *	Les tables primaires et secondaires sont allouees
  * dans un espace ou les adresses physiques sont les
  * memes que les adresses logiques
 */
 {
-	uint32_t* addrPrimaryTable;
-	addrPrimaryTable = vMem_Alloc(1);
+    uint32_t* addrPrimaryTable = MiniAlloc(FRAMES_TT_FIRST_TABLE_OCCUP);
+    InitFirstEntries(addrPrimaryTable);
+
+    //On cherche une page libre pour la pile
+    uint32_t* stackPhysicalAddr = (uint32_t*)findFirstUnoccupied(0)*PAGE_SIZE;
+    InsertEntryInSecondaryTable(addrPrimaryTable,
+                                stackPhysicalAddr,
+                                INIT_STACK_POINTER-PAGE_SIZE+1,
+                                0x0,
+                                0);
 
 	return addrPrimaryTable;
 }
@@ -349,11 +349,11 @@ uint8_t InsertEntryInSecondaryTable(uint32_t* primaryTableAddr,
  * l'@ physique
  */ 
 {
-	uint32_t* primaryEntryAddr = GET_PRIMARY_ENTRY_ADDR(primaryEntryAddr,desirededLogicalAddr);
-	uint32_t translationFaultMask = 0x2; //Soit 00..0011
+    uint32_t* primaryEntryAddr = GET_PRIMARY_ENTRY_ADDR(primaryTableAddr,desirededLogicalAddr);
+
 	if( IS_PRIMARY_TRANSLATION_FAULT(*primaryEntryAddr) )
 	{
-		*primaryEntryAddr = ((uint32_t)FindSpaceForNewSecondaryTable(primaryTableAddr) & (0xFFFFFC00 | primaryFlags));
+        *primaryEntryAddr = ((uint32_t)MiniAlloc(FRAMES_TT_SECON_TABLE_OCCUP) & (0xFFFFFC00 | primaryFlags));
 	}
 	
 	uint32_t * secondaryEntryAddr = (uint32_t*) GET_SECONDARY_ENTRY_ADDR(GET_SECONDARY_TABLE_ADDR(*primaryEntryAddr),desirededLogicalAddr);
@@ -369,18 +369,207 @@ uint8_t InsertEntryInSecondaryTable(uint32_t* primaryTableAddr,
 	}
 }
 
-uint32_t* FindSpaceForNewSecondaryTable(uint32_t* primaryTableAddr)
+
+/* ---------------------- MINI-TABLE
+ *
+ *
+ *
+ * */
+
+int32_t MiniFindFirstUnoccupied(uint32_t noPageDebut)
 {
-	uint32_t* currentPrimaryTableAddr;
-	uint32_t maxAddrForSecondaryTable = 0;
-	for(currentPrimaryTableAddr=primaryTableAddr;
-		currentPrimaryTableAddr<primaryTableAddr+FIRST_LVL_TT_SIZE;
-		currentPrimaryTableAddr+=4)
-	{
-		if(GET_SECONDARY_TABLE_ADDR(*primaryTableAddr)>maxAddrForSecondaryTable)
-		{
-			maxAddrForSecondaryTable = GET_SECONDARY_TABLE_ADDR(*primaryTableAddr);
-		}
-	}
-	return (uint32_t*)(maxAddrForSecondaryTable+SECON_LVL_TT_SIZE);
+    /* On raisonne en PAGE
+        mais il faudrait raisonner en @ pour la perf*/
+    uint32_t currPage;
+    uint8_t unoccFind = 0;
+    for(currPage=noPageDebut;
+        currPage<FRAMES_TT_FRAMES_COUN;
+        currPage++)
+    {
+        if(!MiniCheckOccupation(currPage))
+        {
+            unoccFind = 1;
+            break;
+        }
+    }
+    if(unoccFind)
+            return currPage;
+    else
+        return -1;
+} //
+
+int32_t MiniFindFirstOccupied(uint32_t noPageDebut)
+{
+    /* On raisonne en PAGE
+        mais il faudrait raisonner en @ pour la perf*/
+    uint32_t currPage;
+    uint8_t occFind = 0;
+    for(currPage=noPageDebut;
+        currPage<FRAMES_TT_FRAMES_COUN;
+        currPage++)
+    {
+        if(MiniCheckOccupation(currPage))
+        {
+            occFind = 1;
+            break;
+        }
+    }
+    if(occFind)
+            return currPage;
+    else
+        return -1;
+} //
+
+int MiniCheckRangeOccupation(uint32_t pageBegin, uint32_t pageEnd)
+{
+    /* On raisonne en PAGE */
+    uint32_t currentPage;
+    for(currentPage=pageBegin;currentPage<pageEnd;currentPage++)
+    {
+        //Il suffit qu'une seule page soit occupee
+        //pour faire echouer la procedure
+        if(MiniCheckOccupation(currentPage))
+        {   return 1;  }
+    }
+    return 0;
+} //
+
+int MiniCheckOccupation(uint32_t noPage)
+{
+    /* On raisonne entre PAGE & ADRESSE */
+    uint32_t* occupTableAddr = MiniNoPageToPageLineAdress(noPage);
+    uint8_t occupTableOffs = noPage%8;
+    uint8_t occupModifierLine = 1 << occupTableOffs;
+    return ((*occupTableAddr & occupModifierLine));
+} //
+
+void MiniSetOccupied(uint32_t noPage)
+{
+    /* On raisonne entre PAGE & ADRESSE */
+    uint32_t* occupTableAddr = MiniNoPageToPageLineAdress(noPage);
+    uint8_t occupTableOffs = noPage%8;
+    uint8_t occupModifierLine = 1 << occupTableOffs;
+    *occupTableAddr = *occupTableAddr | occupModifierLine;
+} //
+
+void MiniSetUnoccupied(uint32_t noPage)
+{
+    /* On raisonne entre PAGE & ADRESSE */
+    uint32_t* occupTableAddr = MiniNoPageToPageLineAdress(noPage);
+    uint8_t occupTableOffs = noPage%8;
+    uint8_t occupModifierLine = 255
+                                & ~(1 << occupTableOffs);
+    *occupTableAddr = *occupTableAddr & occupModifierLine;
+} //
+
+void MiniInitPagesTable()
+{
+    uint32_t currentPage;
+    for(currentPage=0;currentPage<FRAMES_TT_FRAMES_COUN;currentPage++)
+    {
+        MiniSetUnoccupied(currentPage);
+    }
+} //
+
+uint32_t* MiniNoPageToPageLineAdress(uint32_t noPage)
+{
+    uint32_t occupTableLine = noPage/8;
+    uint32_t occupTableAddr = (occupTableLine+FRAMES_TT_ADDR);
+    return occupTableAddr;
+} //
+
+
+/* --------------- MINI ALLOC, MINI FREE
+ */
+
+uint32_t* MiniAlloc(uint8_t nbMiniFrames)
+{
+    /* On raisonne en PAGE, mais on renvoie une adresse */
+    uint32_t addrMem = NULL;
+    int32_t noPage = 0;
+    uint32_t nextPage;
+
+    do {
+        noPage = MiniFindFirstUnoccupied(noPage);
+        if(noPage==-1)
+            //On est arrive au bout de l'espace
+            return NULL;
+        if(!MiniCheckRangeOccupation(noPage,noPage+nbMiniFrames))
+        {
+            break;
+        }
+        noPage = MiniFindFirstOccupied((uint32_t) noPage);
+    } while(noPage!=-1);
+
+    if(noPage==-1)
+        return NULL;
+    //On a notre plage de pages
+    //On charge en retour l'adresse initiale
+    addrMem = noPage*FRAMES_TT_SIZE_OF_A_FRAME+FRAMES_TT_ADDR;
+
+    //Remplissage de la table des pages
+    uint32_t noCurrentPage;
+    for(noCurrentPage=noPage;
+        noCurrentPage<noPage+nbMiniFrames;
+        noCurrentPage++)
+    {
+        MiniSetOccupied(noCurrentPage);
+    }
+    return addrMem;
+}
+
+uint8_t MiniFree(uint32_t* ptTable, uint8_t nbMiniFrames)
+{
+    uint32_t currentPage;
+    for(currentPage = ((uint32_t) ptTable-FRAMES_TT_ADDR)/FRAMES_TT_SIZE_OF_A_FRAME;
+        currentPage < ((uint32_t) ptTable-FRAMES_TT_ADDR)/FRAMES_TT_SIZE_OF_A_FRAME+nbMiniFrames;
+        currentPage++)
+    {
+        MiniSetUnoccupied(currentPage);
+    }
+}
+
+uint32_t* FindFreeSpace(uint32_t nbPages)
+{
+
+}
+
+
+/*ATTENTION ! POUR L'INSTANT LES TRADUCTIONS VERS LES @PERIPHERIQUES
+ * SONT DESACTIVEES (TRANSLATION FAULT)
+ */
+
+void InitFirstEntries(uint32_t* primaryTableAddr)
+{
+    uint32_t primaryTable_flag = 0x1;
+    uint32_t primaryTable_transErrorFlag = 0x3;
+    uint32_t device_flag = 0x0017;
+    uint32_t normal_flag = 0x0052;
+
+    //Adresse de la table de second niveau actuelle
+    uint32_t currentSecondaryTable_beg_addr = SECON_LVL_TT_START_ADDR;
+    uint32_t addr;
+    for(addr=FIRST_LVL_TT_START_ADDR; addr<FIRST_LVL_TT_START_ADDR+FIRST_LVL_TT_SIZE; addr+=4 /*On remplit 32bits par 32bits*/)
+    {
+        //Translation d'adresse
+        //On determine la case de
+        //la table de premier niveau
+        uint32_t currentVirtualAddr = (addr-FIRST_LVL_TT_START_ADDR)<<18;
+        uint32_t primaryTableEntry;
+        int32_t addrInSecTable;
+        if(	(currentVirtualAddr >= NO_TRANS_BEG_ADDR1 &&
+            currentVirtualAddr < NO_TRANS_END_ADDR1) )
+        {
+            //Dans cette zone les adresses physiques
+            // sont inaccessibles au PS
+            primaryTableEntry=primaryTable_transErrorFlag;
+
+        } else if(currentVirtualAddr >= NO_TRANS_BEG_ADDR2 &&
+                  currentVirtualAddr < NO_TRANS_END_ADDR2) {
+            //Dans cette zone les adresses physiques
+            // sont accessibles au PS, sans traduction
+            primaryTableEntry=primaryTable_transErrorFlag;
+        }
+        PUT32(addr, primaryTableEntry);
+    }
 }
