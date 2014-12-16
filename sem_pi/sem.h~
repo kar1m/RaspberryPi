@@ -10,7 +10,7 @@ typedef struct sem_s{
 } sem_s;
 
 typedef struct mtx_s{
-	int compteur = 1; //Compteur de mutex
+	int compteur; //Compteur de mutex
 	pcb_s** fileAttente; //file d'attente
 } mtx_s;
 

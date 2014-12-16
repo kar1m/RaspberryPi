@@ -26,7 +26,6 @@ void init_pcb(struct pcb_s* pcb, func_t f, void* ptArgs)
 	pcb->id = nbProcess++;
 }
 //<<FIXED>>//
-/*
 void init_pcb(struct pcb_s* pcb, func_t f, void* ptArgs, pcb_priority priority)
 {
 	static int nbProcess = 0;
@@ -35,7 +34,7 @@ void init_pcb(struct pcb_s* pcb, func_t f, void* ptArgs, pcb_priority priority)
 	pcb->pt_args = ptArgs;	
 	pcb->id = nbProcess++;
 	pcb->priority = priority;
-}*/
+}
 
 
 void create_process(func_t f, void* args, unsigned int stack_size)
@@ -64,7 +63,7 @@ void create_process(func_t f, void* args, unsigned int stack_size)
 	pt_newPcb->nbQuantums = 0; 
 }
 //<<FIXED>>//
-/*void create_process(func_t f, void* args, unsigned int stack_size,pcb_priority priority)
+void create_process(func_t f, void* args, unsigned int stack_size,pcb_priority priority)
 {
 	//On libère de la place pour notre pcb
 	struct pcb_s* pt_newPcb = (pcb_s*) phyAlloc_alloc(sizeof(pcb_s));
@@ -93,7 +92,7 @@ void create_process(func_t f, void* args, unsigned int stack_size)
 		current_process_priority->pt_nextPs = pt_newPcb;
 	}
 }
-*/
+
 
 void kill_current_process_simple()
 {

@@ -2,7 +2,7 @@
 #define SEM_H
 
 #include "stdlib.h"
-#include "../sched_fixed_priority/sched_fixed.h"
+#include "../sched_simple/sched.h"
 
 typedef struct sem_s{
 	int compteur; //Compteur de semaphore

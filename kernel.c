@@ -1,6 +1,6 @@
 #include "stdlib.h"
 #include "./hardware/hw.h"
-//#include "./sem_pi/sem.h"
+#include "./sem_pi/sem.h"
 #include "./sched_simple/sched.h"
 #include "syscall/syscall.h"
 
@@ -56,7 +56,7 @@ int kmain ( void )
     create_process(funcA, NULL, stack_size);
     create_process(funcC, NULL, stack_size);
 
-    start_sched();
+    start_sched( SIMPLE );
 
     while(1){}
     /* Pas atteignable vues nos 2 fonctions */
