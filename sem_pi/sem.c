@@ -35,7 +35,7 @@ void sem_down(struct sem_s* sem)
 	}
 }
 
-void mtx_init(struct mtx_s* mutex);
+void mtx_init(struct mtx_s* mutex)
 {
 	mutex->compteur = 1;
 }
