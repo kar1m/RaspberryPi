@@ -2,6 +2,7 @@
 #include "./sched_simple/sched.h"
 #include "./hardware/hw.h"
 //#include "syscall/syscall.h"
+#include "./sortie_serie/uart.h"
 
 void funcA()
 {
@@ -41,8 +42,15 @@ int kmain ( void )
     create_process(funcB, NULL, stack_size);
     create_process(funcA, NULL, stack_size);
     create_process(funcC, NULL, stack_size);
-    start_sched();
-   // ctx_switch();
+
+
+	#define UART_BUFFER_SIZE 256u
+	static char uart_buffer[UART_BUFFER_SIZE];
+	uart_send_str("Enfin un semblant printf...\n");
+	uart_send_str("Enfin lol..");
+
+    	start_sched();
+   	// ctx_switch();
     while(1){}
     /* Pas atteignable vues nos 2 fonctions */
     return 0;

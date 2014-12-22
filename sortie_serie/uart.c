@@ -2,6 +2,11 @@
 #include "asm_tools.h"
 #include "uart.h"
 
+
+extern void PUT32 ( unsigned int, unsigned int );
+extern unsigned int GET32 ( unsigned int );
+
+
 //
 // Constante des puissances de 10
 static const int TEN_POW[10] = {	1,
@@ -22,41 +27,41 @@ int uart_error;
 void uart_init(void)
 {
 	// On désactive UART
-	set32(UART_CR, 0u);
+	PUT32(UART_CR, 0u);
 
 	// Initialisation GPIO (14 et 15)
 	// On règle la fonction sur ALT0 pour les bons pins
-	set32(GPIO_FSEL1, get32(GPIO_FSEL1) | (GPIO_ALT0 << GPIO_TDX0_OFF));
-	set32(GPIO_FSEL1, get32(GPIO_FSEL1) | (GPIO_ALT0 << GPIO_RDX0_OFF));
+	PUT32(GPIO_FSEL1, GET32(GPIO_FSEL1) | (GPIO_ALT0 << GPIO_TDX0_OFF));
+	PUT32(GPIO_FSEL1, GET32(GPIO_FSEL1) | (GPIO_ALT0 << GPIO_RDX0_OFF));
 	// On règle le pull down
-	set32(GPIO_PUD, 0u);
-	delay(150u);
-	set32(GPIO_PUDCLK0, (1u << UART_TXD0_PIN) | (1u << UART_RDX0_PIN));
-	delay(150u);
-	set32(GPIO_PUD, 0u);
-	set32(GPIO_PUDCLK0, 0u);
+	PUT32(GPIO_PUD, 0u);
+	//delay(150u);
+	PUT32(GPIO_PUDCLK0, (1u << UART_TXD0_PIN) | (1u << UART_RDX0_PIN));
+	//delay(150u);
+	PUT32(GPIO_PUD, 0u);
+	PUT32(GPIO_PUDCLK0, 0u);
 
 	// On initialisation UART
 	// On clear la line
-	set32(UART_LCRH, 0u);
+	PUT32(UART_LCRH, 0u);
 	// On clear les intéruptions
-	set32(UART_ICR, 0u);
+	PUT32(UART_ICR, 0u);
 	// On règles le baud rate à 115200 baud
-	set32(UART_IBRD, 1u);
-	set32(UART_FBRD, 40u);
+	PUT32(UART_IBRD, 1u);
+	PUT32(UART_FBRD, 40u);
 	// Line control :
 	// - break disable
 	// - parity disable
 	// - stop bits disable
 	// - fifo disabled
 	// - word length = 8 bits
-	set32(UART_LCRH, (3u << 5u));
+	PUT32(UART_LCRH, (3u << 5u));
 	// Seuil FIFO
 	// - On n'utilise pas la FIFO
-	set32(UART_IFLS, 0u);
+	PUT32(UART_IFLS, 0u);
 	// Interruption
 	//  On masque tout
-	set32(UART_IMSC, (1u << 1u) | (1u << 4u) | (1u << 5u)
+	PUT32(UART_IMSC, (1u << 1u) | (1u << 4u) | (1u << 5u)
 						| (1u << 6u) | (1u << 7u) | (1u << 8u)
 						| (1u << 9u) | (1u << 10u));
 	// Controle :
@@ -65,7 +70,7 @@ void uart_init(void)
 	// - activation de la réception/émission
 	// - pas de RTS
 	// - pas de flowcontrol
-	set32(UART_CR, (1u << 0u) | (1u << 8u) | (1u << 9u));
+	PUT32(UART_CR, (1u << 0u) | (1u << 8u) | (1u << 9u));
 }
 
 //
@@ -81,17 +86,17 @@ void uart_send_str(const char *data)
 	do
 	{
 		// On attend que l'UART soit disponible
-		while ((get32(UART_FR) & (1u << 5u)) != 0u);
+		while ((GET32(UART_FR) & (1u << 5u)) != 0u);
 		// On écrit la données
-		set32(UART_DR, (unsigned int)*(data++));
+		PUT32(UART_DR, (unsigned int)*(data++));
 
 	} while (*data != 0);
 
 	// On envoie la caractère nul
 	// On attend que l'UART soit disponible
-	while ((get32(UART_FR) & (1u << 5u)) != 0u);
+	while ((GET32(UART_FR) & (1u << 5u)) != 0u);
 	// On écrit la données
-	set32(UART_DR, 0u);
+	PUT32(UART_DR, 0u);
 }
 
 //
@@ -176,9 +181,9 @@ int uart_receive_str(char *buffer, unsigned int n)
 	do
 	{
 		// On attend que se ne soit pas vide
-		while ((get32(UART_FR) & (1u << 4u)) != 0);
+		while ((GET32(UART_FR) & (1u << 4u)) != 0);
 		// Lecture du byte
-		byte = get32(UART_DR) & 0xFFu;
+		byte = GET32(UART_DR) & 0xFFu;
 
 		// On vérifique que se n'est pas la fin
 		if (byte == 0u)
@@ -276,7 +281,7 @@ int uart_receive_int(void)
 // Permet de savoir si la receive fifo est vide
 int uart_is_receive_fifo_empty(void)
 {
-	if ((get32(UART_FR) & (1 << 4)) != 0)
+	if ((GET32(UART_FR) & (1 << 4)) != 0)
 	{
 		return 0;
 	}
