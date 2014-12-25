@@ -34,12 +34,6 @@ void funcC(int babar)
 int kmain ( void )
 {
     	init_hw();
-    	init_kern_translation_table();
-        //generateTestValues();
-        configure_mmu_C();
-        start_mmu_C();
-        initPagesTable();
-
         testVM();
         return 0;
 }
