@@ -2,6 +2,8 @@
 #include <stdio.h>
 
 unsigned int total=0;
+//Modulo global (pour la division)
+uint32_t globMod=0;
 
 FreeSpace* ptFirstFreeSpace;
 
@@ -103,6 +105,13 @@ void generateTestValues()
 
 int testVM()
 {
+	uint32_t result;
+	uint32_t mod;
+	uint8_t ret;
+	ret = Divide(10,1,&result,&mod);
+	ret = Divide(1,10,&result,&mod);
+	ret = Divide(9,3,&result,&mod);
+	ret = Divide(10,3,&result,&mod);
 	ptFirstFreeSpace = (FreeSpace*)Mini_Alloc(MINI_SIZE_TO_NB_PAGES(sizeof(FreeSpace)),0);
 	vMem_Init();
 	uint32_t* pt1 = VirtualSpace_Get(1);
@@ -192,6 +201,7 @@ void vMem_Free(uint32_t* ptr, unsigned int nbPages)
 	{
 		/* A completer! */
 		uint32_t* phyAddr = GetPhyFromLog(0,ptr+currentPage*PAGE_SIZE);
+		/* ATTENTION DIVISION */
 		setUnoccupied((uint32_t)phyAddr/PAGE_SIZE);
 	}
 	VirtualSpace_Release(ptr,nbPages);
@@ -295,12 +305,30 @@ void initFramesTable()
     */
 
     uint32_t currentPage;
-    for(currentPage=NO_TRANS_BEG_ADDR1/PAGE_SIZE;currentPage<(NO_TRANS_END_ADDR1-0x100000)/PAGE_SIZE;currentPage++)
+	uint32_t initPageFirst;
+	uint32_t endPageFirst;
+	uint32_t initPageSecon;
+	uint32_t endPageSecon;
+	Divide(	NO_TRANS_BEG_ADDR1,
+			PAGE_SIZE,
+			&initPageFirst,&globMod);
+	Divide(	NO_TRANS_END_ADDR1-0x100000,
+			PAGE_SIZE,
+			&endPageFirst, &globMod);
+
+	Divide(	NO_TRANS_BEG_ADDR2,
+			PAGE_SIZE,
+			&initPageSecon,&globMod);
+	Divide(	NO_TRANS_END_ADDR2-0x100000,
+			PAGE_SIZE,
+			&endPageSecon, &globMod);
+
+	for(currentPage=initPageFirst;currentPage<endPageFirst;currentPage++)
     {
         setOccupied(currentPage);
     }
 
-    for(currentPage=NO_TRANS_BEG_ADDR2/PAGE_SIZE;currentPage<NO_TRANS_END_ADDR2/PAGE_SIZE;currentPage++)
+    for(currentPage=initPageSecon;currentPage<initPageSecon;currentPage++)
     {
         setOccupied(currentPage);
     }
@@ -355,18 +383,18 @@ uint8_t LinkLogAddrToPhyAddr(	uint32_t* primaryTableAddr,
 
 	if( IS_PRIMARY_TRANS_FAULT(*primaryEntryAddr) )
 	{
-		*primaryEntryAddr = ((uint32_t)Mini_Alloc(MINI_SIZE_TO_NB_PAGES(SECON_LVL_TT_SIZE) | (/* ERREUR ? 0xFFFFFC00 |*/ primaryFlags),10));
+		*primaryEntryAddr = (uint32_t)Mini_Alloc(MINI_SIZE_TO_NB_PAGES(SECON_LVL_TT_SIZE),10) | (/* ERREUR ? 0xFFFFFC00 |*/ primaryFlags);
 	}
 	
 	uint32_t * secondaryEntryAddr = (uint32_t*) GET_SECONDARY_ENTRY_ADDR(GET_SECONDARY_TABLE_ADDR(*primaryEntryAddr),desirededLogicalAddr);
 	
 	if(IS_SECONDARY_TRANS_FAULT(secondaryEntryAddr))
 	{
-		*secondaryEntryAddr = ((uint32_t) physicalAddr | 0x00000FFF) & (0xFFFFF000 | secondaryFlags);
+		*secondaryEntryAddr = ((uint32_t) physicalAddr | secondaryFlags);
 		return ADD_TT_SUCCESS;
 	} else {
 		if(rewriteIfExisting)
-			*secondaryEntryAddr = ((uint32_t) physicalAddr | 0x0000FFF) & (0xFFFFF000 | secondaryFlags);
+			*secondaryEntryAddr = ((uint32_t) physicalAddr | secondaryFlags);
 		return ADD_TT_ERR_LOGICAL_ADDR_EXISTING;
 	}
 }
@@ -500,8 +528,20 @@ uint32_t* Mini_Alloc(uint32_t nbMiniFrames, uint8_t nbZeros)
 
 		// Dans le cas où l'on veuille des zeros
 		// en fin d'adresse, on corrige le noPage
-		if(nbZeros>0 && noPage%addrStep!=0)
-			noPage = (noPage/addrStep + 1)*addrStep;
+		if(nbZeros>0)
+		{
+			// On evite la division psk c'est le bordel
+			uint32_t noBloc = 1;
+			while(noBloc*addrStep<noPage*MINI_FRAMES_SIZE_OF_A_FRAME)
+			{
+				noBloc++;
+			}
+			uint32_t noPageU;
+			Divide(	noBloc*addrStep,
+					MINI_FRAMES_SIZE_OF_A_FRAME,
+					&noPageU, &globMod);
+			noPage = (int32_t)noPageU;
+		}
 
         if(!Mini_CheckRangeOccupation(noPage,noPage+nbMiniFrames))
         {
@@ -530,8 +570,19 @@ uint32_t* Mini_Alloc(uint32_t nbMiniFrames, uint8_t nbZeros)
 uint8_t Mini_Free(uint32_t* ptTable, uint32_t nbMiniFrames)
 {
     uint32_t currentPage;
-	for(currentPage = ((uint32_t) ptTable-KERNEL_MRY_ADDR)/MINI_FRAMES_SIZE_OF_A_FRAME;
-		currentPage < ((uint32_t) ptTable-KERNEL_MRY_ADDR)/MINI_FRAMES_SIZE_OF_A_FRAME+nbMiniFrames;
+	uint32_t pageInit;
+	uint32_t pageEnd;
+	uint32_t mod;	//pour divide, mais inutile
+	Divide(((uint32_t) ptTable-KERNEL_MRY_ADDR),
+			MINI_FRAMES_SIZE_OF_A_FRAME,
+			&pageInit,&mod);
+
+	Divide(((uint32_t) ptTable-KERNEL_MRY_ADDR),
+			MINI_FRAMES_SIZE_OF_A_FRAME+nbMiniFrames,
+			&pageEnd,&mod);
+
+	for(currentPage = pageInit;
+		currentPage < pageEnd;
         currentPage++)
     {
         Mini_SetUnoccupied(currentPage);
@@ -612,7 +663,12 @@ void VirtualSpace_Release(uint32_t* logAddrToRealease, uint32_t nbPages)
 
 	if(createNewFS)
 	{		
-		FreeSpace* newFS = (FreeSpace*)Mini_Alloc(sizeof(FreeSpace)/MINI_FRAMES_SIZE_OF_A_FRAME+1,0);
+		uint32_t nbMiniFrames;
+		uint32_t mod;
+		Divide(	sizeof(FreeSpace),
+				MINI_FRAMES_SIZE_OF_A_FRAME+1,
+				&nbMiniFrames,&mod);
+		FreeSpace* newFS = (FreeSpace*)Mini_Alloc(nbMiniFrames,0);
 		(*newFS).nbPagesFree = nbPages;
 		(*newFS).addrSpace = logAddrToRealease;
 		(*newFS).ptNextFreeSpace = nextFS;
@@ -646,7 +702,13 @@ FreeSpace* VirtualSpace_GetNextFreeSpace(uint32_t* logAddrToRealease)
 
 void vMem_Init()
 {
-	(*ptFirstFreeSpace).nbPagesFree = (HEAP_END-HEAP_BEG)/PAGE_SIZE;
+	uint32_t nbPagesFree;
+	uint32_t mod;
+	Divide(	(HEAP_END-HEAP_BEG),
+			PAGE_SIZE,
+			&nbPagesFree,&mod);
+	
+	(*ptFirstFreeSpace).nbPagesFree = nbPagesFree;
 	(*ptFirstFreeSpace).addrSpace = (uint32_t*)HEAP_BEG;
 	(*ptFirstFreeSpace).ptNextFreeSpace = ptFirstFreeSpace;
 }
@@ -660,20 +722,20 @@ uint32_t* Kernel_InitTTEntries()
     uint32_t primaryTable_flag = 0x1;
     uint32_t primaryTable_transErrorFlag = 0x3;
     uint32_t device_flag = 0x0017;
-    uint32_t normal_flag = 0x0052;
+    uint32_t normal_flag = 0x0051;
 	uint32_t* currentAddr;
-	uint32_t* addrKernelTT = Mini_Alloc(MINI_SIZE_TO_NB_PAGES(FIRST_LVL_TT_SIZE),0);
+	uint32_t* addrKernelTT = Mini_Alloc(MINI_SIZE_TO_NB_PAGES(FIRST_LVL_TT_SIZE),14);
 
 	for(currentAddr=(uint32_t*)NO_TRANS_BEG_ADDR1;
 		currentAddr<(uint32_t*)NO_TRANS_END_ADDR1;
-		currentAddr += PAGE_SIZE)
+		currentAddr+=PAGE_SIZE/4)
 	{
 		LinkLogAddrToPhyAddr(addrKernelTT,currentAddr,currentAddr,primaryTable_flag,normal_flag,1);
 	}
 
 	for(currentAddr=(uint32_t*)NO_TRANS_BEG_ADDR2;
 		currentAddr<(uint32_t*)NO_TRANS_END_ADDR2;
-		currentAddr += PAGE_SIZE)
+		currentAddr+=PAGE_SIZE/4)
 	{
 		LinkLogAddrToPhyAddr(addrKernelTT,currentAddr,currentAddr,primaryTable_flag,device_flag,1);
 	}
@@ -692,7 +754,15 @@ void InitFirstEntries(uint32_t* primaryTableAddr)
 		currentLogicalAddress<(uint32_t*)NO_TRANS_END_ADDR1;
 		currentLogicalAddress+=(PAGE_SIZE*SECON_LVL_TT_COUN) )
 	{
-		currentNoPagePrim = (uint32_t)currentLogicalAddress/PAGE_SIZE/SECON_LVL_TT_COUN;
+		uint32_t currentPage;
+		uint32_t mod;
+		Divide(	(uint32_t)currentLogicalAddress,
+				PAGE_SIZE,
+				&currentPage,&mod);
+		Divide(	currentPage,
+				SECON_LVL_TT_COUN,
+				&currentNoPagePrim, &mod);
+
 		PUT32(	currentNoPagePrim*4+(uint32_t)primaryTableAddr,
 				*( (uint32_t*)(currentNoPagePrim*4+FIRST_LVL_TT_START_ADDR) ) );
 	}
@@ -700,7 +770,13 @@ void InitFirstEntries(uint32_t* primaryTableAddr)
 		currentLogicalAddress<(uint32_t*)NO_TRANS_END_ADDR2;
 		currentLogicalAddress+=(PAGE_SIZE*SECON_LVL_TT_COUN) )
 	{
-		currentNoPagePrim = (uint32_t)currentLogicalAddress/PAGE_SIZE/SECON_LVL_TT_COUN;
+		uint32_t currentPage;
+		Divide(	(uint32_t)currentLogicalAddress,
+				PAGE_SIZE,
+				&currentPage,&globMod);
+		Divide(	currentPage,
+				SECON_LVL_TT_COUN,
+				&currentNoPagePrim, &globMod);
 		PUT32(	currentNoPagePrim*4+(uint32_t)primaryTableAddr,
 				*( (uint32_t*)(currentNoPagePrim*4+FIRST_LVL_TT_START_ADDR) ) );
 	}
@@ -713,4 +789,25 @@ uint32_t* GetPhyFromLog(uint32_t* primaryTableAddr, uint32_t* logAddr)
 	uint32_t* secTableLineAddr =  (uint32_t*)GET_SECONDARY_ENTRY_ADDR(GET_SECONDARY_TABLE_ADDR(*primaryTableLineAddr),logAddr);
 	uint32_t* phyAddr = (uint32_t*)((uint32_t)((*secTableLineAddr) & 0xFFFFF000) + ((uint32_t)(logAddr) & 0x00000FFF));  
 	return phyAddr;
+}
+
+
+
+/* ------------- Utilitaires
+ */
+
+uint8_t Divide(uint32_t top, uint32_t btm, uint32_t* ptRslt, uint32_t* ptMod)
+{
+	uint32_t incr;
+	uint32_t somme = btm;
+	if(btm==0)
+		return DVD_ZERO_ERROR;
+
+	for(incr=0;somme<=top;incr++)
+	{
+		somme += btm;
+	}
+	*ptRslt = incr;
+	*ptMod = top+btm-somme;
+	return DVD_SUCCES;
 }

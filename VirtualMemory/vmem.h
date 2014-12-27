@@ -56,12 +56,13 @@
 
 #define IS_SECONDARY_TRANS_FAULT(descriptor)  ((((uint32_t)descriptor) << 30) == (SECONDARY_TRANS_FAULT << 30))
 
-#define GET_PRIMARY_ENTRY_ADDR(primaryTableAddr,logicalAddr)	( primaryTableAddr + (((uint32_t)logicalAddr)>>20) )
+#define GET_PRIMARY_ENTRY_ADDR(primaryTableAddr,logicalAddr)	( primaryTableAddr + ((((uint32_t)logicalAddr)>>18)&0x3FFC) )
 
-#define GET_SECONDARY_ENTRY_ADDR(secondaryTableAddr,logicalAddr)	( secondaryTableAddr + ((( (uint32_t)logicalAddr )>>12)&0xFF) )
+#define GET_SECONDARY_ENTRY_ADDR(secondaryTableAddr,logicalAddr)	( secondaryTableAddr + ((( (uint32_t)logicalAddr )>>10)&0x3FC) )
 
 #define GET_SECONDARY_TABLE_ADDR(primaryDescr) (0xFFFFC00 & primaryDescr)
 
+/* ATTENTION Division */
 #define MINI_SIZE_TO_NB_PAGES(size) (size/MINI_FRAMES_SIZE_OF_A_FRAME+1)
 
 //Donnees pour les programmes
@@ -296,5 +297,14 @@ void VirtualSpace_Release(uint32_t* logAddrToRealease, uint32_t nbPages);
 FreeSpace* VirtualSpace_GetPrevious(FreeSpace* freeSpace);
 
 FreeSpace* VirtualSpace_GetNextFreeSpace(uint32_t* logAddrToRealease);
+
+
+/* -------------- UTILITAIRES
+ *
+ */
+#define DVD_ZERO_ERROR 0
+#define DVD_SUCCES 1
+uint8_t Divide(uint32_t top, uint32_t btm, uint32_t* ptRslt, uint32_t* ptMod);
+
 
 #endif
