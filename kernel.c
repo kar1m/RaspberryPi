@@ -3,7 +3,7 @@
 #include "./sem_pi/sem.h"
 #include "./sched_simple/sched.h"
 #include "syscall/syscall.h"
-
+#include "VirtualMemory/vmem.h"
 
 void funcA()
 {
