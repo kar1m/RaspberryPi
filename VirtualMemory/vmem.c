@@ -5,6 +5,8 @@ unsigned int total=0;
 //Modulo global (pour la division)
 uint32_t globMod=0;
 
+uint32_t* KernelFirstTTaddr;
+
 FreeSpace* ptFirstFreeSpace;
 
 unsigned int init_kern_translation_table()
@@ -124,11 +126,13 @@ int testVM()
 	uint32_t* pt5 = VirtualSpace_Get(0x45000000);
 	uint32_t* pt6 = VirtualSpace_Get(2000);*/
 
-	uint32_t* primAddr = Kernel_InitTTEntries();
-	LinkLogAddrToPhyAddr(primAddr,(uint32_t*)0x500000,(uint32_t*)0x1000000,0x1,0x52,1);
-	configure_mmu_C(primAddr);
+	KernelFirstTTaddr = Kernel_InitTTEntries();
+	LinkLogAddrToPhyAddr(KernelFirstTTaddr,(uint32_t*)0x500000,(uint32_t*)0x1000000,0x1,0x52,1);
+	configure_mmu_C(KernelFirstTTaddr);
 	start_mmu_C();
 	uint32_t* pt7 = CreateMemoryArea();
+	configure_mmu_C(pt7);
+	start_mmu_C();
 
     return 0;
 }
@@ -353,7 +357,7 @@ uint32_t* CreateMemoryArea()
  * memes que les adresses logiques
 */
 {
-	uint32_t* addrPrimaryTable = Mini_Alloc(MINI_SIZE_TO_NB_PAGES(FIRST_LVL_TT_SIZE),0);
+	uint32_t* addrPrimaryTable = Mini_Alloc(MINI_SIZE_TO_NB_PAGES(FIRST_LVL_TT_SIZE),14);
     InitFirstEntries(addrPrimaryTable);
 
     //On cherche une page libre pour la pile
@@ -753,36 +757,28 @@ void InitFirstEntries(uint32_t* primaryTableAddr)
  */
 {
 	uint32_t* currentLogicalAddress;
-	uint32_t  currentNoPagePrim;
+	uint32_t* addrEntryInKerTT;
+	uint32_t* addrEntryInCurTT;
+	
 	for(currentLogicalAddress=(uint32_t*)NO_TRANS_BEG_ADDR1;
 		currentLogicalAddress<(uint32_t*)NO_TRANS_END_ADDR1;
 		currentLogicalAddress+=(PAGE_SIZE*SECON_LVL_TT_COUN) )
 	{
-		uint32_t currentPage;
-		uint32_t mod;
-		Divide(	(uint32_t)currentLogicalAddress,
-				PAGE_SIZE,
-				&currentPage,&mod);
-		Divide(	currentPage,
-				SECON_LVL_TT_COUN,
-				&currentNoPagePrim, &mod);
+		addrEntryInKerTT = (uint32_t*)GET_PRIMARY_ENTRY_ADDR(KernelFirstTTaddr,currentLogicalAddress);
+		addrEntryInCurTT = (uint32_t*)GET_PRIMARY_ENTRY_ADDR(primaryTableAddr,currentLogicalAddress);
 
-		PUT32(	currentNoPagePrim*4+(uint32_t)primaryTableAddr,
-				*( (uint32_t*)(currentNoPagePrim*4+FIRST_LVL_TT_START_ADDR) ) );
+		PUT32(	(uint32_t)addrEntryInCurTT,
+				*addrEntryInKerTT );
 	}
 	for(currentLogicalAddress=(uint32_t*)NO_TRANS_BEG_ADDR2;
 		currentLogicalAddress<(uint32_t*)NO_TRANS_END_ADDR2;
 		currentLogicalAddress+=(PAGE_SIZE*SECON_LVL_TT_COUN) )
 	{
-		uint32_t currentPage;
-		Divide(	(uint32_t)currentLogicalAddress,
-				PAGE_SIZE,
-				&currentPage,&globMod);
-		Divide(	currentPage,
-				SECON_LVL_TT_COUN,
-				&currentNoPagePrim, &globMod);
-		PUT32(	currentNoPagePrim*4+(uint32_t)primaryTableAddr,
-				*( (uint32_t*)(currentNoPagePrim*4+FIRST_LVL_TT_START_ADDR) ) );
+		addrEntryInKerTT = (uint32_t*)GET_PRIMARY_ENTRY_ADDR(KernelFirstTTaddr,currentLogicalAddress);
+		addrEntryInCurTT = (uint32_t*)GET_PRIMARY_ENTRY_ADDR(primaryTableAddr,currentLogicalAddress);
+
+		PUT32(	(uint32_t)addrEntryInCurTT,
+				*addrEntryInKerTT );
 	}
 }
 
