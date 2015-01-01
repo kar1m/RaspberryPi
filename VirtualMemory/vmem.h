@@ -56,9 +56,9 @@
 
 #define IS_SECONDARY_TRANS_FAULT(descriptor)  ((((uint32_t)descriptor) << 30) == (SECONDARY_TRANS_FAULT << 30))
 
-#define GET_PRIMARY_ENTRY_ADDR(primaryTableAddr,logicalAddr)	( primaryTableAddr + ((((uint32_t)logicalAddr)>>18)&0x3FFC) )
+#define GET_PRIMARY_ENTRY_ADDR(primaryTableAddr,logicalAddr)	( (uint32_t)primaryTableAddr + ((( (uint32_t)logicalAddr )>>18)&0x3FFC) )
 
-#define GET_SECONDARY_ENTRY_ADDR(secondaryTableAddr,logicalAddr)	( secondaryTableAddr + ((( (uint32_t)logicalAddr )>>10)&0x3FC) )
+#define GET_SECONDARY_ENTRY_ADDR(secondaryTableAddr,logicalAddr)	( (uint32_t)secondaryTableAddr + ((( (uint32_t)logicalAddr )>>10)&0x3FC) )
 
 #define GET_SECONDARY_TABLE_ADDR(primaryDescr) (0xFFFFC00 & primaryDescr)
 

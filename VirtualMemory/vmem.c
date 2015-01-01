@@ -114,7 +114,7 @@ int testVM()
 	ret = Divide(10,3,&result,&mod);
 	ptFirstFreeSpace = (FreeSpace*)Mini_Alloc(MINI_SIZE_TO_NB_PAGES(sizeof(FreeSpace)),0);
 	vMem_Init();
-	uint32_t* pt1 = VirtualSpace_Get(1);
+	/*uint32_t* pt1 = VirtualSpace_Get(1);
 	uint32_t* pt2 = VirtualSpace_Get(10);
 	VirtualSpace_Release(pt1,1);
 	uint32_t* pt3 = VirtualSpace_Get(1);
@@ -122,9 +122,10 @@ int testVM()
 	uint32_t* pt4 = VirtualSpace_Get(15);
 	VirtualSpace_Release(pt2,10);
 	uint32_t* pt5 = VirtualSpace_Get(0x45000000);
-	uint32_t* pt6 = VirtualSpace_Get(2000);
+	uint32_t* pt6 = VirtualSpace_Get(2000);*/
 
 	uint32_t* primAddr = Kernel_InitTTEntries();
+	LinkLogAddrToPhyAddr(primAddr,(uint32_t*)0x500000,(uint32_t*)0x1000000,0x1,0x52,1);
 	configure_mmu_C(primAddr);
 	start_mmu_C();
 	uint32_t* pt7 = CreateMemoryArea();
@@ -379,7 +380,10 @@ uint8_t LinkLogAddrToPhyAddr(	uint32_t* primaryTableAddr,
  * l'@ physique
  */ 
 {
-    uint32_t* primaryEntryAddr = GET_PRIMARY_ENTRY_ADDR(primaryTableAddr,desirededLogicalAddr);
+	uint32_t* test;
+    uint32_t* primaryEntryAddr = (uint32_t*) GET_PRIMARY_ENTRY_ADDR(primaryTableAddr,desirededLogicalAddr);
+	if((uint32_t)(desirededLogicalAddr)%0x100000==0)
+		test = primaryEntryAddr;
 
 	if( IS_PRIMARY_TRANS_FAULT(*primaryEntryAddr) )
 	{
@@ -785,7 +789,7 @@ void InitFirstEntries(uint32_t* primaryTableAddr)
 
 uint32_t* GetPhyFromLog(uint32_t* primaryTableAddr, uint32_t* logAddr)
 {
-	uint32_t* primaryTableLineAddr = GET_PRIMARY_ENTRY_ADDR(primaryTableAddr,logAddr);
+	uint32_t* primaryTableLineAddr = (uint32_t*)GET_PRIMARY_ENTRY_ADDR(primaryTableAddr,logAddr);
 	uint32_t* secTableLineAddr =  (uint32_t*)GET_SECONDARY_ENTRY_ADDR(GET_SECONDARY_TABLE_ADDR(*primaryTableLineAddr),logAddr);
 	uint32_t* phyAddr = (uint32_t*)((uint32_t)((*secTableLineAddr) & 0xFFFFF000) + ((uint32_t)(logAddr) & 0x00000FFF));  
 	return phyAddr;
