@@ -50,7 +50,7 @@ int kmain ( void )
 
     init_hw();
      
-
+	testVM();
     int stack_size = STACK_SIZE;
     create_process(funcB, NULL, stack_size);
     create_process(funcA, NULL, stack_size);

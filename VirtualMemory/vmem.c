@@ -107,13 +107,7 @@ void generateTestValues()
 
 int testVM()
 {
-	uint32_t result;
-	uint32_t mod;
-	uint8_t ret;
-	ret = Divide(10,1,&result,&mod);
-	ret = Divide(1,10,&result,&mod);
-	ret = Divide(9,3,&result,&mod);
-	ret = Divide(10,3,&result,&mod);
+	initFramesTable();
 	ptFirstFreeSpace = (FreeSpace*)Mini_Alloc(MINI_SIZE_TO_NB_PAGES(sizeof(FreeSpace)),0);
 	vMem_Init();
 	/*uint32_t* pt1 = VirtualSpace_Get(1);
@@ -317,14 +311,14 @@ void initFramesTable()
 	Divide(	NO_TRANS_BEG_ADDR1,
 			PAGE_SIZE,
 			&initPageFirst,&globMod);
-	Divide(	NO_TRANS_END_ADDR1-0x100000,
+	Divide(	NO_TRANS_END_ADDR1,
 			PAGE_SIZE,
 			&endPageFirst, &globMod);
 
 	Divide(	NO_TRANS_BEG_ADDR2,
 			PAGE_SIZE,
 			&initPageSecon,&globMod);
-	Divide(	NO_TRANS_END_ADDR2-0x100000,
+	Divide(	NO_TRANS_END_ADDR2,
 			PAGE_SIZE,
 			&endPageSecon, &globMod);
 
@@ -365,8 +359,8 @@ uint32_t* CreateMemoryArea()
     LinkLogAddrToPhyAddr(	addrPrimaryTable,
                             stackPhysicalAddr,
                             (uint32_t*)(INIT_STACK_POINTER-PAGE_SIZE+1),
-                            0x0,
-							0x0,
+                            PROCES_FIRST_TT_FLAGS,
+							PROCES_SECON_TT_FLAGS,
                             0);
 
 	return addrPrimaryTable;
@@ -384,10 +378,7 @@ uint8_t LinkLogAddrToPhyAddr(	uint32_t* primaryTableAddr,
  * l'@ physique
  */ 
 {
-	uint32_t* test;
     uint32_t* primaryEntryAddr = (uint32_t*) GET_PRIMARY_ENTRY_ADDR(primaryTableAddr,desirededLogicalAddr);
-	if((uint32_t)(desirededLogicalAddr)%0x100000==0)
-		test = primaryEntryAddr;
 
 	if( IS_PRIMARY_TRANS_FAULT(*primaryEntryAddr) )
 	{
@@ -526,7 +517,6 @@ uint32_t* Mini_Alloc(uint32_t nbMiniFrames, uint8_t nbZeros)
     uint32_t addrMem = NULL;
     int32_t noPage = 0;
 	uint32_t addrStep = 1 << nbZeros;
-    uint32_t nextPage;
 
     do {
         noPage = Mini_FindFirstUnoccupied(noPage);
@@ -595,6 +585,8 @@ uint8_t Mini_Free(uint32_t* ptTable, uint32_t nbMiniFrames)
     {
         Mini_SetUnoccupied(currentPage);
     }
+
+	return 0;
 }
 
 /* ------------------ VIRTUAL SPACE ALLOCATOR
@@ -727,10 +719,10 @@ uint32_t* Kernel_InitTTEntries()
  * = creation de la Translation Table du Noyau
  */
 {
-    uint32_t primaryTable_flag = 0x1;
-    uint32_t primaryTable_transErrorFlag = 0x3;
-    uint32_t device_flag = 0x0017;
-    uint32_t normal_flag = 0x0051;
+    uint32_t primaryTable_flag = KERNEL_FIRST_TT_FLAGS;
+    uint32_t primaryTable_transErrorFlag = PRIMARY_TRANS_FAULT_1;
+    uint32_t device_flag = KERNEL_SECON_TT_FLAGS_DEVICES;
+    uint32_t normal_flag = KERNEL_SECON_TT_FLAGS_INIT;
 	uint32_t* currentAddr;
 	uint32_t* addrKernelTT = Mini_Alloc(MINI_SIZE_TO_NB_PAGES(FIRST_LVL_TT_SIZE),14);
 
@@ -762,7 +754,7 @@ void InitFirstEntries(uint32_t* primaryTableAddr)
 	
 	for(currentLogicalAddress=(uint32_t*)NO_TRANS_BEG_ADDR1;
 		currentLogicalAddress<(uint32_t*)NO_TRANS_END_ADDR1;
-		currentLogicalAddress+=(PAGE_SIZE*SECON_LVL_TT_COUN) )
+		currentLogicalAddress+=(PAGE_SIZE*SECON_LVL_TT_COUN)/4 )
 	{
 		addrEntryInKerTT = (uint32_t*)GET_PRIMARY_ENTRY_ADDR(KernelFirstTTaddr,currentLogicalAddress);
 		addrEntryInCurTT = (uint32_t*)GET_PRIMARY_ENTRY_ADDR(primaryTableAddr,currentLogicalAddress);
@@ -772,7 +764,7 @@ void InitFirstEntries(uint32_t* primaryTableAddr)
 	}
 	for(currentLogicalAddress=(uint32_t*)NO_TRANS_BEG_ADDR2;
 		currentLogicalAddress<(uint32_t*)NO_TRANS_END_ADDR2;
-		currentLogicalAddress+=(PAGE_SIZE*SECON_LVL_TT_COUN) )
+		currentLogicalAddress+=(PAGE_SIZE*SECON_LVL_TT_COUN)/4 )
 	{
 		addrEntryInKerTT = (uint32_t*)GET_PRIMARY_ENTRY_ADDR(KernelFirstTTaddr,currentLogicalAddress);
 		addrEntryInCurTT = (uint32_t*)GET_PRIMARY_ENTRY_ADDR(primaryTableAddr,currentLogicalAddress);
@@ -811,3 +803,20 @@ uint8_t Divide(uint32_t top, uint32_t btm, uint32_t* ptRslt, uint32_t* ptMod)
 	*ptMod = top+btm-somme;
 	return DVD_SUCCES;
 }
+
+
+/* ------------ CTX SWITCH
+ */
+/*
+#include "../sched_simple/sched.h"
+void Mmu_Switch(pcb_s* ptPCB_elctPs)
+{
+	//Invalidation de la TLB
+	__asm("mcr p15, 0, r0, c8, c6, 0"); //c7 au lieu de c6??
+	register unsigned int pt_addr = (uint32_t)ptPCB_elctPs->primaryTableAddr;
+	__asm volatile("mcr p15, 0, %[addr], c2, c0, 0" : : [addr] "r" (pt_addr));
+	__asm volatile("mcr p15, 0, %[addr], c2, c0, 1" : : [addr] "r" (pt_addr));
+
+	register uint8_t asid = ptPCB_elctPs->asid;
+	__asm volatile("MCR p15, 0, %[asid], c13, c0, 1" : : [asid] "r" (asid));
+}*/
