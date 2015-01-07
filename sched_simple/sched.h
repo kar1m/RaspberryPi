@@ -3,6 +3,7 @@
 
 #define STACK_SIZE 1024 
 
+#include "../VirtualMemory/vmem.h"
 #include "stdlib.h"
 
 typedef void (*func_t) (void*);
@@ -30,15 +31,17 @@ typedef enum sched_policy
 
 
 typedef struct pcb_s{
-	int id;			//Id processus
-	pcb_state ps_state;	//Etat du processus
-	func_t pt_fct;		//Pointeur de fonction
-	void* pt_args;		//Pointeur vers les arguments
-	struct pcb_s* pt_nextPs;//Pointeur vers le processus suivant
-	unsigned int currentSP;	//Pointeur de pile courant
-	unsigned int currentPC;	//Compteur d'instruction courant
-	unsigned int stackSize;//Stack size pour dépiler
-	pcb_priority priority; // PRIORITE
+	uint8_t id;					//Id processus
+	pcb_state ps_state;			//Etat du processus
+	func_t pt_fct;				//Pointeur de fonction
+	void* pt_args;				//Pointeur vers les arguments
+	uint32_t* firstTTaddr;		//Adresse de la table de translation de niveau 1
+	FreeSpace*	pt_fsHeap;		//Pointeur vers le premier descripteur d'espace libre du tas
+	struct pcb_s* pt_nextPs;	//Pointeur vers le processus suivant
+	unsigned int currentSP;		//Pointeur de pile courant
+	unsigned int currentPC;		//Compteur d'instruction courant
+	unsigned int stackSize;		//Stack size pour dépiler
+	pcb_priority priority;		// PRIORITE
 	unsigned int nbQuantums;
 } pcb_s;
 
@@ -62,6 +65,9 @@ void elect();
 
 void start_current_process();
 void kill_current_process();
+
+void MMU_commutation(uint32_t* newFirstTTAddr, uint8_t newASID);
+/* Permet d'effectuer le changement de table primaire */
 
 void ctx_switch_from_irq();
 unsigned int cpu_cycles();

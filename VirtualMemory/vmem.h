@@ -90,6 +90,9 @@ struct FreeSpace {
 
 typedef struct FreeSpace FreeSpace;
 
+void ConfigureKTT_And_EnableMMU();
+/* Rempli la TT du Kernel et active la MMU */
+
 unsigned int init_kern_translation_table();
 /* Initialise la table de translation de l'OS
  * Laisse @logique = @physique pour les espaces

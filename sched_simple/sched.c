@@ -1,7 +1,13 @@
 #include "sched.h"
 #include "../alloc_simple/phyAlloc.h"
 #include "stdlib.h"
+#include "../VirtualMemory/vmem.h"
 #include "../hardware/hw.h"
+#include "stdint.h"
+
+/* Variables globales pour la MMU */
+uint8_t Kernel_ASID = 1;
+extern uint32_t* Kernel_FirstTTAddr;
 
 /* 																/
 ------------------------------Utils------------------------------
@@ -19,7 +25,7 @@ unsigned int cpu_cycles() {
 
 void init_pcb(struct pcb_s* pcb, func_t f, void* ptArgs)
 {
-	static int nbProcess = 0;
+	static uint8_t nbProcess = 2;	//On demarre à 2, histoire que l'OS ait un ASID (1)
 	pcb->ps_state = CREATED;
 	pcb->pt_fct = f;
 	pcb->pt_args = ptArgs;	
@@ -40,10 +46,12 @@ void init_pcb(struct pcb_s* pcb, func_t f, void* ptArgs, pcb_priority priority)
 
 void create_process(func_t f, void* args, unsigned int stack_size)
 {
-	//On libère de la place pour notre pcb
-	struct pcb_s* pt_newPcb = (pcb_s*) phyAlloc_alloc(sizeof(pcb_s));
+	//On libère de la place pour notre pcb DANS L'ESPACE KERNEL
+	struct pcb_s* pt_newPcb = (pcb_s*) Mini_Alloc(MINI_SIZE_TO_NB_PAGES(sizeof(pcb_s)),0);
 	init_pcb(pt_newPcb,f,args);
-	pt_newPcb->stackSize = stack_size;	
+	pt_newPcb->stackSize = stack_size;
+	pt_newPcb->firstTTaddr = CreateMemoryArea();
+	pt_newPcb->pt_fsHeap = (FreeSpace*) Mini_Alloc(MINI_SIZE_TO_NB_PAGES(sizeof(FreeSpace)),0);
 	
 	//On vérifie que c'est pas le premier
 	if(current_process->pt_fct==NULL)	
@@ -56,10 +64,10 @@ void create_process(func_t f, void* args, unsigned int stack_size)
        
 	//Allocation mémoire pour la pile et le PC
 	pt_newPcb->currentPC = (unsigned int) f;
-        pt_newPcb->currentSP = (unsigned int) phyAlloc_alloc(stack_size*4);
-        //Deplacement du SP pour le mettre au sommet de la pile, 
-        //en comptant les 13 registres à placer au dessus (48)
-	pt_newPcb->currentSP += (stack_size*4-52);
+	pt_newPcb->currentSP = INIT_STACK_POINTER;
+		//Deplacement du SP pour le mettre au sommet de la pile, 
+		//en comptant les 13 registres à placer au dessus (48)
+		pt_newPcb->currentSP -= 52;
 	
 	pt_newPcb->nbQuantums = 0; 
 }
@@ -109,8 +117,10 @@ void kill_current_process_simple()
 	
 	//Liberation memoire 
 	void* pt_stack = (void*)(current_process->currentSP-current_process->stackSize+52);
-	phyAlloc_free(pt_stack,current_process->stackSize);
-	phyAlloc_free(current_process, sizeof(pcb_s));
+	vMem_Free((uint32_t*)pt_stack,PAGE_SIZE);	//
+	Mini_Free((uint32_t*)current_process->firstTTaddr, MINI_SIZE_TO_NB_PAGES(sizeof(FreeSpace)));	//
+	Mini_Free((uint32_t*)current_process, MINI_SIZE_TO_NB_PAGES(sizeof(pcb_s)));	//
+	
 
 	current_process = scanned_process->pt_nextPs;
 }
@@ -148,7 +158,7 @@ void elect_fixed()
 void start_sched_simple()
 {	
 	//On cree un nouveau pcb afin d'ammorcer la pompe	
-	struct pcb_s* pt_newPcb = (pcb_s*) phyAlloc_alloc(sizeof(pcb_s));
+	struct pcb_s* pt_newPcb = (pcb_s*) Mini_Alloc(MINI_SIZE_TO_NB_PAGES(sizeof(pcb_s)),0);
 	init_pcb(pt_newPcb,NULL,NULL);
 	//On fait pointer le champ "nextPs" de notre nouveau 
 	//processus vers le premier de notre liste
@@ -157,7 +167,8 @@ void start_sched_simple()
        
 	//Allocation mémoire pour la pile et le PC
 	pt_newPcb->currentPC = 0;
-    pt_newPcb->currentSP = (unsigned int) phyAlloc_alloc(48*4);	//! #DEFINE
+	pt_newPcb->currentSP = (unsigned int) Mini_Alloc(MINI_SIZE_TO_NB_PAGES(48*4),0);	//! #DEFINE 
+	//Note : On va peut etre pas s'embeter a creer de la memoire virtuelle alors qu'on s'en sert pas
     pt_newPcb->currentSP += (52*4-4);
     
     ENABLE_IRQ();
@@ -200,6 +211,9 @@ void start_sched(sched_policy _policy)
 void start_current_process()
 {
 	//Lancement de la fonction du ps courant avec ses args
+	//On passe dans l'espace memoire Processus ???
+	MMU_commutation(current_process->firstTTaddr,current_process->id);
+
 	current_process->pt_fct(current_process->pt_args);
 }
 
@@ -226,7 +240,17 @@ void elect()
 	}
 }
 
+void MMU_commutation(uint32_t* newFirstTTAddr, uint8_t newASID)
+{
+	//Invalidation de la TLB
+	__asm("mcr p15, 0, r0, c8, c6, 0"); //c7 au lieu de c6??
+	register unsigned int pt_addr = (uint32_t)newFirstTTAddr;
+	__asm volatile("mcr p15, 0, %[addr], c2, c0, 0" : : [addr] "r" (pt_addr));
+	__asm volatile("mcr p15, 0, %[addr], c2, c0, 1" : : [addr] "r" (pt_addr));
 
+	register uint8_t asid = newASID;
+	__asm volatile("MCR p15, 0, %[asid], c13, c0, 1" : : [asid] "r" (asid));
+}
 
 void ctx_switch_from_irq()
 {
@@ -235,6 +259,9 @@ void ctx_switch_from_irq()
     __asm("srsdb sp!, #0x13");
     __asm("cps #0x13");
     
+	//On passe dans l'espace memoire Kernel
+	MMU_commutation(Kernel_FirstTTAddr,Kernel_ASID);
+
     //Sauvegarde du contexte
     
     //----on sauvegarde les registres
@@ -287,6 +314,10 @@ void ctx_switch_from_irq()
                 __asm("pop {r0-r12}");
 
 				ENABLE_IRQ();
+
+				//On passe dans l'espace memoire du processus
+				//EST CE QUE C'EST BIEN LA ????
+				MMU_commutation(current_process->firstTTaddr,current_process->id);
 
 				__asm("rfeia sp!");                
 

@@ -1,17 +1,26 @@
 #include "vmem.h"
 #include <stdio.h>
 
-unsigned int total=0;
-//Modulo global (pour la division)
-uint32_t globMod=0;
+/* VARIABLES GLOBALES */
 
-uint32_t* KernelFirstTTaddr;
+//Variables pot de fleur
+unsigned int total=0;	//Pour start MMU
+uint32_t globMod=0;		//Modulo global (pour la division)
 
+//MMU 
+uint32_t* Kernel_FirstTTAddr;
+extern uint8_t Kernel_ASID;
+
+//Inutile ??
 FreeSpace* ptFirstFreeSpace;
+
+/* REALISATION DE FONCTIONS */
 
 unsigned int init_kern_translation_table()
 {
-/* Initialisation de la table de
+/*	---- DEPRECATED since Isolation Phase  -----
+ *	---- use Kernel_InitTTEntries instead  -----
+ * Initialisation de la table de
  * niveau 1, à partir de l'adresse
  * specifiee
  *
@@ -107,9 +116,6 @@ void generateTestValues()
 
 int testVM()
 {
-	initFramesTable();
-	ptFirstFreeSpace = (FreeSpace*)Mini_Alloc(MINI_SIZE_TO_NB_PAGES(sizeof(FreeSpace)),0);
-	vMem_Init();
 	/*uint32_t* pt1 = VirtualSpace_Get(1);
 	uint32_t* pt2 = VirtualSpace_Get(10);
 	VirtualSpace_Release(pt1,1);
@@ -120,15 +126,15 @@ int testVM()
 	uint32_t* pt5 = VirtualSpace_Get(0x45000000);
 	uint32_t* pt6 = VirtualSpace_Get(2000);*/
 
-	KernelFirstTTaddr = Kernel_InitTTEntries();
-	LinkLogAddrToPhyAddr(KernelFirstTTaddr,(uint32_t*)0x500000,(uint32_t*)0x1000000,0x1,0x52,1);
-	configure_mmu_C(KernelFirstTTaddr);
-	start_mmu_C();
-	uint32_t* pt7 = CreateMemoryArea();
-	configure_mmu_C(pt7);
-	start_mmu_C();
-
     return 0;
+}
+
+void ConfigureKTT_And_EnableMMU()
+{
+	initFramesTable();
+	Kernel_FirstTTAddr = Kernel_InitTTEntries();
+	configure_mmu_C(Kernel_FirstTTAddr);
+	start_mmu_C();
 }
 
 void start_mmu_C()
@@ -143,6 +149,10 @@ void start_mmu_C()
 	__asm volatile("mcr p15, 0, %[data], c8, c7, 0" : : [data] "r" (0));
 /* Write control register */
 	__asm volatile("mcr p15, 0, %[control], c1, c0, 0" : : [control] "r" (control));
+
+	//Define the kernel as the current running process
+	register uint8_t asid = Kernel_ASID;
+	__asm volatile("MCR p15, 0, %[asid], c13, c0, 1" : : [asid] "r" (asid));
 }
 
 void configure_mmu_C(uint32_t* primaryTableAddr)
@@ -700,7 +710,7 @@ FreeSpace* VirtualSpace_GetNextFreeSpace(uint32_t* logAddrToRealease)
 	return currentFS;
 }
 
-void vMem_Init()
+void vMem_Init(FreeSpace* pt_firstFSDescriptor)
 {
 	uint32_t nbPagesFree;
 	uint32_t mod;
@@ -708,9 +718,9 @@ void vMem_Init()
 			PAGE_SIZE,
 			&nbPagesFree,&mod);
 	
-	(*ptFirstFreeSpace).nbPagesFree = nbPagesFree;
-	(*ptFirstFreeSpace).addrSpace = (uint32_t*)HEAP_BEG;
-	(*ptFirstFreeSpace).ptNextFreeSpace = ptFirstFreeSpace;
+	(*pt_firstFSDescriptor).nbPagesFree = nbPagesFree;
+	(*pt_firstFSDescriptor).addrSpace = (uint32_t*)HEAP_BEG;
+	(*pt_firstFSDescriptor).ptNextFreeSpace = ptFirstFreeSpace;
 }
 
 uint32_t* Kernel_InitTTEntries()
@@ -756,7 +766,7 @@ void InitFirstEntries(uint32_t* primaryTableAddr)
 		currentLogicalAddress<(uint32_t*)NO_TRANS_END_ADDR1;
 		currentLogicalAddress+=(PAGE_SIZE*SECON_LVL_TT_COUN)/4 )
 	{
-		addrEntryInKerTT = (uint32_t*)GET_PRIMARY_ENTRY_ADDR(KernelFirstTTaddr,currentLogicalAddress);
+		addrEntryInKerTT = (uint32_t*)GET_PRIMARY_ENTRY_ADDR(Kernel_FirstTTAddr,currentLogicalAddress);
 		addrEntryInCurTT = (uint32_t*)GET_PRIMARY_ENTRY_ADDR(primaryTableAddr,currentLogicalAddress);
 
 		PUT32(	(uint32_t)addrEntryInCurTT,
@@ -766,7 +776,7 @@ void InitFirstEntries(uint32_t* primaryTableAddr)
 		currentLogicalAddress<(uint32_t*)NO_TRANS_END_ADDR2;
 		currentLogicalAddress+=(PAGE_SIZE*SECON_LVL_TT_COUN)/4 )
 	{
-		addrEntryInKerTT = (uint32_t*)GET_PRIMARY_ENTRY_ADDR(KernelFirstTTaddr,currentLogicalAddress);
+		addrEntryInKerTT = (uint32_t*)GET_PRIMARY_ENTRY_ADDR(Kernel_FirstTTAddr,currentLogicalAddress);
 		addrEntryInCurTT = (uint32_t*)GET_PRIMARY_ENTRY_ADDR(primaryTableAddr,currentLogicalAddress);
 
 		PUT32(	(uint32_t)addrEntryInCurTT,
@@ -804,19 +814,3 @@ uint8_t Divide(uint32_t top, uint32_t btm, uint32_t* ptRslt, uint32_t* ptMod)
 	return DVD_SUCCES;
 }
 
-
-/* ------------ CTX SWITCH
- */
-/*
-#include "../sched_simple/sched.h"
-void Mmu_Switch(pcb_s* ptPCB_elctPs)
-{
-	//Invalidation de la TLB
-	__asm("mcr p15, 0, r0, c8, c6, 0"); //c7 au lieu de c6??
-	register unsigned int pt_addr = (uint32_t)ptPCB_elctPs->primaryTableAddr;
-	__asm volatile("mcr p15, 0, %[addr], c2, c0, 0" : : [addr] "r" (pt_addr));
-	__asm volatile("mcr p15, 0, %[addr], c2, c0, 1" : : [addr] "r" (pt_addr));
-
-	register uint8_t asid = ptPCB_elctPs->asid;
-	__asm volatile("MCR p15, 0, %[asid], c13, c0, 1" : : [asid] "r" (asid));
-}*/
