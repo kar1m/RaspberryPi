@@ -39,7 +39,8 @@ typedef struct pcb_s{
 	unsigned int currentPC;	//Compteur d'instruction courant
 	unsigned int stackSize;//Stack size pour dépiler
 	pcb_priority priority; // PRIORITE
-	unsigned int nbQuantums;
+	unsigned int nbQuantums; //Quantums d'attente
+	int blocked; // Etat blocage processus (0:debloqué 1:bloqué)
 } pcb_s;
 
 struct pcb_s* current_process; 

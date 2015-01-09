@@ -12,6 +12,7 @@ void sem_up(struct sem_s* sem)
 	{
 		// Déblocage d'un processus dans la file d'attente
 		sem->fileAttente[0]->ps_state = READY;
+		sem->fileAttente[0]->blocked = 0;
 		// Réaménagement de la file d'attente
 		int index = 0;
 		pcb_s* next = sem->fileAttente[1]; 
@@ -29,9 +30,11 @@ void sem_down(struct sem_s* sem)
 	if (sem->compteur < 0)
 	{
 		// Blocage du processus appelant 
-		current_process->ps_state = WAITING;
 		sem->fileAttente[sizeFile++] = current_process;
-		//ctx_switch_from_irq();
+		while (current_process->blocked)
+		{
+			sys_wait(1000);
+		}
 	}
 }
 
@@ -47,3 +50,4 @@ void mtx_unlock(struct mtx_s* mutex)
 {
 
 }
+

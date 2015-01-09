@@ -2,7 +2,7 @@
 #define SEM_H
 
 #include "stdlib.h"
-#include "../sched_fixed_priority/sched_fixed.h"
+#include "../sched_simple/sched.h"
 
 typedef struct sem_s{
 	int compteur; //Compteur de semaphore
@@ -23,5 +23,9 @@ void mtx_init(struct mtx_s* mutex);
 void mtx_lock(struct mtx_s* mutex);
 void mtx_unlock(struct mtx_s* mutex);
 
+//TEST
+void testsem();
+
 int sizeFile;
+sem_s alpha;
 #endif

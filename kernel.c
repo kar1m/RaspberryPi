@@ -1,6 +1,6 @@
 #include "stdlib.h"
 #include "./hardware/hw.h"
-#include "./sem_pi/sem.h"
+#include "sem_pi/sem.h"
 #include "./sched_simple/sched.h"
 #include "syscall/syscall.h"
 #include "VirtualMemory/vmem.h"
@@ -36,6 +36,39 @@ void funcC()
     }
 }
 
+//<<<<<<<<<<<<<<<<<TEST SEMAPHORES>>>>>>>>>>>>>>>>>
+
+void funcAt()
+{
+    int cptA = 0;
+	sem_down(&alpha);
+    while (1) {
+	cptA++;
+	if(cptA == 5) {
+		sem_up(&alpha);
+	}
+    }
+}
+
+void funcBt()
+{
+
+	int clt =0;
+	sem_down(&alpha);
+	while (1) {
+		clt += 5;
+
+	}
+}
+void testsem()
+{
+	int stack_size = STACK_SIZE;
+	alpha.compteur=1;
+	create_process(funcBt, NULL, stack_size);
+    	create_process(funcAt, NULL, stack_size);
+	start_sched( SIMPLE );
+}
+
 //------------------------------------------------------------------------
 int kmain ( void )
 {
@@ -52,11 +85,11 @@ int kmain ( void )
 	p3 = vmem_alloc(10);*/
 
     init_hw();
-     
-	testVM();
+    testVM();
     int stack_size = STACK_SIZE;
-    create_process(funcB, NULL, stack_size);
-    create_process(funcA, NULL, stack_size);
+    testsem();
+    //create_process(funcB, NULL, stack_size);
+    //create_process(funcA, NULL, stack_size);
     //create_process(funcC, NULL, stack_size);
 
     start_sched( SIMPLE );
