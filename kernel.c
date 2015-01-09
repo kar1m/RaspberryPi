@@ -50,32 +50,26 @@ void funcC()
 void funcAt()
 {
     int cptA = 0;
-	sem_down(&alpha);
     while (1) {
 	cptA++;
 	if(cptA == 5) {
-		sem_up(&alpha);
+		sem_down(&alpha);
+		//sem_up(&alpha);
 	}
     }
 }
 
 void funcBt()
 {
-
 	int clt =0;
 	sem_down(&alpha);
 	while (1) {
 		clt += 5;
-
 	}
 }
 void testsem()
 {
-	int stack_size = STACK_SIZE;
 	alpha.compteur=1;
-	create_process(funcBt, NULL, stack_size);
-    	create_process(funcAt, NULL, stack_size);
-	start_sched( SIMPLE );
 }
 
 //------------------------------------------------------------------------
@@ -98,9 +92,11 @@ init_hw();
 //testVM();
 
     int stack_size = STACK_SIZE;
-    //testsem();
-    create_process(funcB, NULL, stack_size);
-    create_process(funcA, NULL, stack_size);
+    testsem();
+    //create_process(funcB, NULL, stack_size);
+    //create_process(funcA, NULL, stack_size);
+	create_process(funcBt, NULL, stack_size);
+    	create_process(funcAt, NULL, stack_size);
     //create_process(funcC, NULL, stack_size);
 
     start_sched( SIMPLE );
