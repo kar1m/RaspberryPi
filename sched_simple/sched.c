@@ -46,8 +46,11 @@ void create_process(func_t f, void* args, unsigned int stack_size)
 	pt_newPcb->stackSize = stack_size;	
 	
 	//On vérifie que c'est pas le premier
-	if(current_process->pt_fct==NULL)	
+	if(current_process->pt_fct==NULL) {
 		current_process = pt_newPcb;
+		current_process->pt_nextPs = current_process;
+	}
+		
 
 	//Mise à jour last pcb pour ajouter le nouveau pcb à la liste
 	pcb_s* pt_nextPcb = current_process->pt_nextPs;
