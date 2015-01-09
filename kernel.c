@@ -46,6 +46,7 @@ void funcC()
 }
 
 //<<<<<<<<<<<<<<<<<TEST SEMAPHORES>>>>>>>>>>>>>>>>>
+int confirmation = 0;
 
 void funcAt()
 {
@@ -53,6 +54,7 @@ void funcAt()
     while (1) {
 	cptA++;
 	if(cptA == 5) {
+		confirmation = 1;
 		sem_down(&alpha);
 		//sem_up(&alpha);
 	}
@@ -65,6 +67,10 @@ void funcBt()
 	sem_down(&alpha);
 	while (1) {
 		clt += 5;
+		if (confirmation == 1)
+		{
+			sem_up(&alpha);
+		}
 	}
 }
 void testsem()
