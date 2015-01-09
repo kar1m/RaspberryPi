@@ -5,21 +5,13 @@
 #include "syscall/syscall.h"
 #include "VirtualMemory/vmem.h"
 #include "pwm.h"
+#include "Framebuffer/fb.h"
 
 void funcA()
 {
- 	int clt =0;
-	while (1) {
-		int j = 0; 
-		int i = 0; 
-
-		for (i = 0 ; i < 5; i++) 
-		{
-			for (j = 0; j< 1000000; j++);
-			led_on();
-			for (j = 0; j< 1000000; j++);
-			led_off();
-		}
+	while(1) { 
+		drawRed();
+		drawBlue(); 
 	}
 
 }
@@ -39,7 +31,6 @@ void funcB()
 			for (j = 0; j< 100000; j++);
 			led_off();
 		}
-		sys_wait(3000);
 	}
 }
 
@@ -102,12 +93,15 @@ int kmain ( void )
 
 init_hw();
 //testVM();
+FramebufferInitialize();
+
+
 
     int stack_size = STACK_SIZE;
     //testsem();
-    create_process(funcB, NULL, stack_size);
-    //create_process(funcA, NULL, stack_size);
-    create_process(funcC, NULL, stack_size);
+    //create_process(funcB, NULL, stack_size);
+    create_process(funcA, NULL, stack_size);
+    //create_process(funcC, NULL, stack_size);
 
     start_sched( SIMPLE );
 
