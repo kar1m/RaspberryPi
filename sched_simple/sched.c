@@ -248,7 +248,10 @@ void ctx_switch_from_irq()
     __asm("mov %0, sp" : "=r"(current_process->currentSP));
     
     //Changement etat processus
-    current_process->ps_state = READY;
+    if (current_process->ps_state != SLEEPING) {
+        current_process->ps_state = READY;
+    }
+
     //2 Election
     int continue_elect = 1;
     while(continue_elect)
@@ -271,12 +274,13 @@ void ctx_switch_from_irq()
                 break;
                 
             case SLEEPING: 
-				if(current_process->nbQuantums <= cpu_cycles() )
+				if(current_process->nbQuantums > 0)
 				{
-					current_process->ps_state = READY; 
-				}else{
+					current_process->nbQuantums--;
 					break;
-				}          	
+				}else {
+					current_process->ps_state = READY;
+				}
             case READY:
                 current_process->ps_state = RUNNING;
                 

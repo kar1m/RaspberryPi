@@ -30,8 +30,9 @@ void sem_down(struct sem_s* sem)
 	if (sem->compteur < 0)
 	{
 		// Blocage du processus appelant 
+		current_process->blocked = 1;
 		sem->fileAttente[sizeFile++] = current_process;
-		while (current_process->blocked)
+		while (current_process->blocked == 1)
 		{
 			sys_wait(1000);
 		}

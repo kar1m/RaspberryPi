@@ -52,36 +52,36 @@ void funcC()
 }
 
 //<<<<<<<<<<<<<<<<<TEST SEMAPHORES>>>>>>>>>>>>>>>>>
+int confirmation = 0;
 
 void funcAt()
 {
     int cptA = 0;
-	sem_down(&alpha);
     while (1) {
 	cptA++;
 	if(cptA == 5) {
-		sem_up(&alpha);
+		confirmation = 1;
+		sem_down(&alpha);
+		//sem_up(&alpha);
 	}
     }
 }
 
 void funcBt()
 {
-
 	int clt =0;
 	sem_down(&alpha);
 	while (1) {
 		clt += 5;
-
+		if (confirmation == 1)
+		{
+			sem_up(&alpha);
+		}
 	}
 }
 void testsem()
 {
-	int stack_size = STACK_SIZE;
 	alpha.compteur=1;
-	create_process(funcBt, NULL, stack_size);
-    create_process(funcAt, NULL, stack_size);
-	start_sched( SIMPLE );
 }
 
 //------------------------------------------------------------------------
