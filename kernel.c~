@@ -4,7 +4,7 @@
 #include "./sched_simple/sched.h"
 #include "syscall/syscall.h"
 #include "VirtualMemory/vmem.h"
-#include "pwm.h"
+#include "./wav/pwm.h"
 
 void funcA()
 {

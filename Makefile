@@ -3,12 +3,13 @@ ARMGNU ?= arm-none-eabi
 CFLAGS = -Wall -nostdlib -fomit-frame-pointer -mno-apcs-frame -nostartfiles -ffreestanding -g -march=armv6z -marm -mthumb-interwork
 ASFLAGS = -g -march=armv6z
 
-C_FILES=kernel.c ./alloc_simple/phyAlloc.c ./hardware/hw.c ./sched_simple/sched.c ./syscall/syscall.c ./VirtualMemory/vmem.c
+C_FILES=kernel.c ./alloc_simple/phyAlloc.c ./hardware/hw.c ./sched_simple/sched.c ./syscall/syscall.c ./VirtualMemory/vmem.c pwm.c
 
 AS_FILES=vectors.s
 
 OBJS = $(patsubst %.s,%.o,$(AS_FILES))
 OBJS += $(patsubst %.c,%.o,$(C_FILES))
+OBJS += tune.o
 
 .PHONY: gcc clean
 
@@ -31,6 +32,9 @@ clean :
 
 %.o : %.s
 	$(ARMGNU)-as $(ASFLAGS) $< -o $@
+
+tune.o : tune.wav
+	$(ARMGNU)-ld -s -r -o $@ -b binary $^
 
 kernel : memmap $(OBJS)
 	$(ARMGNU)-ld $(OBJS) -T memmap -o kernel.elf
