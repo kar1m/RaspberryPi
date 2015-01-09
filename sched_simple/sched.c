@@ -46,9 +46,9 @@ void create_process(func_t f, void* args, unsigned int stack_size)
 	pt_newPcb->stackSize = stack_size;	
 	
 	//On vérifie que c'est pas le premier
-	if(current_process->pt_fct==NULL) {
+	if(pt_newPcb->id == 0) {
 		current_process = pt_newPcb;
-		current_process->pt_nextPs = current_process;
+		current_process->pt_nextPs = pt_newPcb;
 	}
 		
 
@@ -248,7 +248,10 @@ void ctx_switch_from_irq()
     __asm("mov %0, sp" : "=r"(current_process->currentSP));
     
     //Changement etat processus
-    current_process->ps_state = READY;
+    if (current_process->ps_state != SLEEPING) {
+        current_process->ps_state = READY;
+    }
+
     //2 Election
     int continue_elect = 1;
     while(continue_elect)
