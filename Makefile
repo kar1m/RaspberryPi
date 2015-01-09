@@ -10,7 +10,7 @@ AS_FILES=vectors.s
 OBJS = $(patsubst %.s,%.o,$(AS_FILES))
 OBJS += $(patsubst %.c,%.o,$(C_FILES))
 
-.PHONY: gcc clean
+.PHONY: gcc clean remake
 
 gcc : kernel
 
@@ -40,3 +40,8 @@ kernel : memmap $(OBJS)
 
 student : clean
 	cd .. && ./build_student_archive.sh
+
+remake :
+	make clean
+	make
+

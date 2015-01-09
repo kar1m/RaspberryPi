@@ -11,6 +11,9 @@ void funcA()
 
     while (1) {
 	cptA++;
+	if(cptA == 5) {
+		sys_wait(3000);
+	}
     }
 }
 
@@ -54,7 +57,7 @@ int kmain ( void )
     int stack_size = STACK_SIZE;
     create_process(funcB, NULL, stack_size);
     create_process(funcA, NULL, stack_size);
-    create_process(funcC, NULL, stack_size);
+    //create_process(funcC, NULL, stack_size);
 
     start_sched( SIMPLE );
 
