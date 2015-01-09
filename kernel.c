@@ -13,7 +13,6 @@ void funcA()
     while (1) {
 	cptA++;
 	if(cptA == 5) {
-		sys_wait(3000);
 	}
 
     }
@@ -94,19 +93,18 @@ int kmain ( void )
 	vmem_free(p1, 10);
 	p3 = vmem_alloc(10);*/
 
-   /*
+
 init_hw();
-testVM();
+//testVM();
 
     int stack_size = STACK_SIZE;
-    testsem();
-    //create_process(funcB, NULL, stack_size);
-    //create_process(funcA, NULL, stack_size);
+    //testsem();
+    create_process(funcB, NULL, stack_size);
+    create_process(funcA, NULL, stack_size);
     //create_process(funcC, NULL, stack_size);
 
     start_sched( SIMPLE );
-*/
-	audio_test();
+    audio_test();
 
     while(1){}
     /* Pas atteignable vues nos 2 fonctions */
