@@ -30,7 +30,7 @@ static void audio_init(void)
 
   unsigned int range = 0x400;
   unsigned int idiv = 2;
-  /* unsigned int pwmFrequency = (19200000 / idiv) / range; */
+  /*unsigned int pwmFrequency = (19200000 / idiv) / range; */
 
   SET_GPIO_ALT(40, 0);
   SET_GPIO_ALT(45, 0);
@@ -69,7 +69,7 @@ audio_test()
   long status;
   audio_init();
 
-  while (i < 100000) {
+  while (i < 1000000) {
     status =  *(pwm + BCM2835_PWM_STATUS);
     if (!(status & BCM2835_FULL1)) {
       *(pwm+BCM2835_PWM_FIFO) = audio_data[i];

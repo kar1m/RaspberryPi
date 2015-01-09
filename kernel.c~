@@ -105,7 +105,7 @@ init_hw();
 
     int stack_size = STACK_SIZE;
     //testsem();
-    create_process(funcB, NULL, stack_size);
+    //create_process(funcB, NULL, stack_size);
     //create_process(funcA, NULL, stack_size);
     create_process(funcC, NULL, stack_size);
 
