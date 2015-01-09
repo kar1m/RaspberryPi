@@ -6,6 +6,12 @@
 #include "../VirtualMemory/vmem.h"
 #include "stdlib.h"
 
+#define MMU_COMMUTATION(addrTT,asid)\
+{\
+\ 
+}
+/* Effectue un changement de table de traduction */
+
 typedef void (*func_t) (void*);
 
 typedef enum pcb_state {
@@ -59,15 +65,13 @@ struct pcb_s* tab_files_process [NUMBER_LISTS];
 void init_pcb(pcb_s* pcb, func_t f, void* ptArgs);
 void create_process(func_t f, void* args, unsigned int stack_size);
 
-
+void __attribute__ ((naked)) switch_next();
 void start_sched( sched_policy _policy );
 void elect();
 
 void start_current_process();
 void kill_current_process();
 
-void MMU_commutation(uint32_t* newFirstTTAddr, uint8_t newASID);
-/* Permet d'effectuer le changement de table primaire */
 
 void ctx_switch_from_irq();
 unsigned int cpu_cycles();

@@ -365,7 +365,9 @@ uint32_t* CreateMemoryArea()
     InitFirstEntries(addrPrimaryTable);
 
     //On cherche une page libre pour la pile
-    uint32_t* stackPhysicalAddr = (uint32_t*)(findFirstUnoccupied(0)*PAGE_SIZE);
+	uint32_t stackPhyPage = findFirstUnoccupied(0);
+	setOccupied(stackPhyPage);
+	uint32_t* stackPhysicalAddr = (uint32_t*)(stackPhyPage*PAGE_SIZE);
     LinkLogAddrToPhyAddr(	addrPrimaryTable,
                             stackPhysicalAddr,
                             (uint32_t*)(INIT_STACK_POINTER-PAGE_SIZE+1),
@@ -740,7 +742,10 @@ uint32_t* Kernel_InitTTEntries()
 		currentAddr<(uint32_t*)NO_TRANS_END_ADDR1;
 		currentAddr+=PAGE_SIZE/4)
 	{
-		LinkLogAddrToPhyAddr(addrKernelTT,currentAddr,currentAddr,primaryTable_flag,normal_flag,1);
+		if(currentAddr>=(uint32_t*)KERNEL_FREE_AREA_BEG && currentAddr<(uint32_t*)KERNEL_FREE_AREA_END)
+			LinkLogAddrToPhyAddr(addrKernelTT,currentAddr,currentAddr,primaryTable_flag,KERNEL_SECON_TT_FLAGS_FREE,1);
+		else
+			LinkLogAddrToPhyAddr(addrKernelTT,currentAddr,currentAddr,primaryTable_flag,normal_flag,1);
 	}
 
 	for(currentAddr=(uint32_t*)NO_TRANS_BEG_ADDR2;

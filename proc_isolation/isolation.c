@@ -1,6 +1,6 @@
 #include "isolation.h"
 #include "../hardware/hw.h"
-#include "../sched_fixed_priority/sched_fixed.h"
+#include "../sched_simple/sched.h"
 
 
 void data_handler()

@@ -181,9 +181,50 @@ void start_sched_fixed()
    	set_tick_and_enable_timer();
 }
 
+//------------Ordonnanceur simple---------------
 
+void __attribute__ ((naked)) switch_next()
+{
+	
+	//1 Sauvegarde du contexte
+	//----on sauvegarde les registres
+	__asm("push {r0-r12}");
+	register unsigned int previousSP;
+	register unsigned int previousPC;
+	//----cad on range le PC courant dans la pile
+	__asm("mov %0, lr" : "=r"(previousPC));
+	//----puis on sauvegarde le SP
+	__asm("mov %0, sp" : "=r"(previousSP));
+	
+	__asm("mcr p15, 0, r0, c8, c6, 0"); //c7 au lieu de c6?? 
+	__asm("mcr p15, 0, %[addr], c2, c0, 0" : : [addr] "r" (Kernel_FirstTTAddr));
+	__asm("mcr p15, 0, %[addr], c2, c0, 1" : : [addr] "r" (Kernel_FirstTTAddr));
+	__asm("MCR p15, 0, %[asid], c13, c0, 1" : : [asid] "r" (Kernel_ASID));
 
+	current_process->currentPC = previousPC;
+	current_process->currentSP = previousSP;
+	//2 Changement de contexte
+	//----cad on change de contexte courant
+	current_process = current_process->pt_nextPs;
+	register unsigned int currentSP = current_process->currentSP;
+	register unsigned int currentPC = current_process->currentPC;
 
+	__asm("mcr p15, 0, r0, c8, c6, 0"); //c7 au lieu de c6?? 
+	__asm("mcr p15, 0, %[addr], c2, c0, 0" : : [addr] "r" (current_process->firstTTaddr));
+	__asm("mcr p15, 0, %[addr], c2, c0, 1" : : [addr] "r" (current_process->firstTTaddr));
+	__asm("MCR p15, 0, %[asid], c13, c0, 1" : : [asid] "r" (current_process->id));
+
+	//----et on recharge le SP
+	__asm("mov sp, %0" : : "r"(currentSP));
+	//----on charge LR pour le retour
+	__asm("mov lr, %0" : : "r"(currentPC));
+	//----on restaure les registres
+	__asm("pop {r0-r12}");
+	
+	//----puis on branche sur le PC du nouveau contexte
+	__asm("bx lr");
+	
+}
 
 
 
@@ -212,7 +253,7 @@ void start_current_process()
 {
 	//Lancement de la fonction du ps courant avec ses args
 	//On passe dans l'espace memoire Processus ???
-	MMU_commutation(current_process->firstTTaddr,current_process->id);
+	MMU_COMMUTATION(current_process->firstTTaddr,current_process->id);
 
 	current_process->pt_fct(current_process->pt_args);
 }
@@ -240,18 +281,6 @@ void elect()
 	}
 }
 
-void MMU_commutation(uint32_t* newFirstTTAddr, uint8_t newASID)
-{
-	//Invalidation de la TLB
-	__asm("mcr p15, 0, r0, c8, c6, 0"); //c7 au lieu de c6??
-	register unsigned int pt_addr = (uint32_t)newFirstTTAddr;
-	__asm volatile("mcr p15, 0, %[addr], c2, c0, 0" : : [addr] "r" (pt_addr));
-	__asm volatile("mcr p15, 0, %[addr], c2, c0, 1" : : [addr] "r" (pt_addr));
-
-	register uint8_t asid = newASID;
-	__asm volatile("MCR p15, 0, %[asid], c13, c0, 1" : : [asid] "r" (asid));
-}
-
 void ctx_switch_from_irq()
 {
     DISABLE_IRQ();
@@ -260,7 +289,7 @@ void ctx_switch_from_irq()
     __asm("cps #0x13");
     
 	//On passe dans l'espace memoire Kernel
-	MMU_commutation(Kernel_FirstTTAddr,Kernel_ASID);
+	MMU_COMMUTATION(Kernel_FirstTTAddr,Kernel_ASID);
 
     //Sauvegarde du contexte
     
@@ -317,7 +346,7 @@ void ctx_switch_from_irq()
 
 				//On passe dans l'espace memoire du processus
 				//EST CE QUE C'EST BIEN LA ????
-				MMU_commutation(current_process->firstTTaddr,current_process->id);
+				MMU_COMMUTATION(current_process->firstTTaddr,current_process->id);
 
 				__asm("rfeia sp!");                
 
