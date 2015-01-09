@@ -23,5 +23,7 @@ void mtx_init(struct mtx_s* mutex);
 void mtx_lock(struct mtx_s* mutex);
 void mtx_unlock(struct mtx_s* mutex);
 
+//TEST
 int sizeFile;
+sem_s alpha;
 #endif

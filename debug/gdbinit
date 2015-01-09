@@ -5,6 +5,8 @@ target remote:1234
 b kmain
 b kernel.c:10
 b kernel.c:20
+b kernel.c:52
+b kernel.c:65
 b kernel.c:29
 b sched.c:232
 source include.gdb
