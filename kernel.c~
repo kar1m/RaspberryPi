@@ -94,10 +94,15 @@ int kmain ( void )
 	vmem_free(p1, 10);
 	p3 = vmem_alloc(10);*/
 
+<<<<<<< HEAD
+    init_hw();
+    testVM();
+=======
    /*
-init_hw();
-testVM();
+ init_hw();
 
+	testVM();
+>>>>>>> b376c9ba22a5f58fe60cfc3d13c88feca9487088
     int stack_size = STACK_SIZE;
     testsem();
     //create_process(funcB, NULL, stack_size);
