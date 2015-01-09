@@ -11,16 +11,11 @@ void funcA()
     int cptA = 0;
 
     while (1) {
-		int j = 0; 
-		int i = 0; 
+	cptA++;
+	if(cptA == 5) {
+		sys_wait(3000);
+	}
 
-		for (i = 0 ; i < 5; i++) 
-		{
-			for (j = 0; j< 10000; j++);
-			led_on();
-			for (j = 0; j< 10000; j++);
-			led_off();
-		}
     }
 }
 
@@ -73,7 +68,7 @@ int kmain ( void )
     int stack_size = STACK_SIZE;
     create_process(funcB, NULL, stack_size);
     create_process(funcA, NULL, stack_size);
-    create_process(funcC, NULL, stack_size);
+    //create_process(funcC, NULL, stack_size);
 
     start_sched( SIMPLE );
 */

@@ -11,7 +11,7 @@ OBJS = $(patsubst %.s,%.o,$(AS_FILES))
 OBJS += $(patsubst %.c,%.o,$(C_FILES))
 OBJS += tune.o
 
-.PHONY: gcc clean
+.PHONY: gcc clean remake
 
 gcc : kernel
 
@@ -44,3 +44,8 @@ kernel : memmap $(OBJS)
 
 student : clean
 	cd .. && ./build_student_archive.sh
+
+remake :
+	make clean
+	make
+

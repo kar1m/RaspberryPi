@@ -4,13 +4,14 @@
 #include "./sched_simple/sched.h"
 #include "syscall/syscall.h"
 #include "VirtualMemory/vmem.h"
-#include "./wav/pwm.h"
+#include "pwm.h"
 
 void funcA()
 {
     int cptA = 0;
 
     while (1) {
+<<<<<<< HEAD
 		int j = 0; 
 		int i = 0; 
 
@@ -21,6 +22,12 @@ void funcA()
 			for (j = 0; j< 10000; j++);
 			led_off();
 		}
+=======
+	cptA++;
+	if(cptA == 5) {
+		sys_wait(3000);
+	}
+>>>>>>> 4cbbc482d70a3223cee4f2153c972e5d0a904884
     }
 }
 
@@ -73,7 +80,7 @@ int kmain ( void )
     int stack_size = STACK_SIZE;
     create_process(funcB, NULL, stack_size);
     create_process(funcA, NULL, stack_size);
-    create_process(funcC, NULL, stack_size);
+    //create_process(funcC, NULL, stack_size);
 
     start_sched( SIMPLE );
 */
