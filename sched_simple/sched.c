@@ -45,10 +45,10 @@ void create_process(func_t f, void* args, unsigned int stack_size)
 	init_pcb(pt_newPcb,f,args);
 	pt_newPcb->stackSize = stack_size;	
 	
-	//On vérifie que c'est pas le premier
-	if(current_process->pt_fct==NULL) {
+	//On vérifie si c'est le premier
+	if(pt_newPcb->id == 0) {
 		current_process = pt_newPcb;
-		current_process->pt_nextPs = current_process;
+		current_process->pt_nextPs = pt_newPcb;
 	}
 		
 
