@@ -274,12 +274,13 @@ void ctx_switch_from_irq()
                 break;
                 
             case SLEEPING: 
-				if(current_process->nbQuantums <= cpu_cycles() )
+				if(current_process->nbQuantums > 0)
 				{
-					current_process->ps_state = READY; 
-				}else{
+					current_process->nbQuantums--;
 					break;
-				}          	
+				}else {
+					current_process->ps_state = READY;
+				}
             case READY:
                 current_process->ps_state = RUNNING;
                 

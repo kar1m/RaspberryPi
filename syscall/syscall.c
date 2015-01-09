@@ -48,7 +48,7 @@ void doSysCallReboot()
 
 void doSysCallWait(unsigned int nbQuantums)
 {
-	current_process->nbQuantums = cpu_cycles() + nbQuantums;
+	current_process->nbQuantums = nbQuantums;
 	current_process->ps_state = SLEEPING;
 	
 	ctx_switch_from_irq();
