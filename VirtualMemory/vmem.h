@@ -2,57 +2,17 @@
 #define VMEM_H
 
 #include <stdint.h>
+#include "VMem_Constants.h"
 
-
-//Definition des constantes de pagination
-#define PAGE_SIZE 4096
-#define SECON_LVL_TT_COUN 256
-#define SECON_LVL_TT_SIZE 1024
-#define FIRST_LVL_TT_COUN 4096 
-#define FIRST_LVL_TT_SIZE 16384
-#define SECTION_SIZE (SECON_LVL_TT_COUN * PAGE_SIZE)
-#define TOTAL_TT_SIZE (FIRST_LVL_TT_SIZE + SECON_LVL_TT_SIZE * FIRST_LVL_TT_COUN) //0x404000=4.210.688
-#define PAGE_COUN (0x21000000/PAGE_SIZE)
-
-//Adresses des tables (TABLES KERNEL)
-#define FIRST_LVL_TT_START_ADDR 0x48000
-#define SECON_LVL_TT_START_ADDR (FIRST_LVL_TT_SIZE + FIRST_LVL_TT_START_ADDR)
-#define SECON_LVL_TT_END_ADDR (SECON_LVL_TT_START_ADDR + SECON_LVL_TT_SIZE * FIRST_LVL_TT_COUN) 
-#define MMUTABLEBASE (FIRST_LVL_TT_START_ADDR)
+//Pour les @TT, voir VMem_Constants.h
 
 //Flags Translation Table
 #define KERNEL_FIRST_TT_FLAGS 0x1
 #define PROCES_FIRST_TT_FLAGS KERNEL_FIRST_TT_FLAGS
-#define KERNEL_SECON_TT_FLAGS_INIT 0x0052
+#define KERNEL_SECON_TT_FLAGS_INIT 0x0852
 #define KERNEL_SECON_TT_FLAGS_FREE 0x0072
 #define KERNEL_SECON_TT_FLAGS_DEVICES 0x0017
 #define PROCES_SECON_TT_FLAGS 0x0872
-
-//Zone memoire Kernel
-#define KERNEL_MRY_CMPL 0xC000
-#define KERNEL_MRY_SIZE KERNEL_MRY_CMPL+TOTAL_TT_SIZE
-
-#define KERNEL_MRY_ADDR FIRST_LVL_TT_START_ADDR
-
-//Table d'occupation des mini-frames
-#define MINI_FRAMES_SIZE_OF_A_FRAME 16
-#define MINI_FRAMES_TOTAL_SIZE (KERNEL_MRY_SIZE/MINI_FRAMES_SIZE_OF_A_FRAME/8)
-#define MINI_FRAMES_FRAMES_COUN MINI_FRAMES_TOTAL_SIZE*8
-
-#define MINI_FRAMES_ADDR (KERNEL_MRY_ADDR+KERNEL_MRY_SIZE)
-
-//Table d'occupation des frames
-#define FRAMES_OCCUP_TABLE_ADDR (MINI_FRAMES_ADDR+MINI_FRAMES_TOTAL_SIZE)
-#define FRAMES_OCCUP_TABLE_SIZE (0x21000000/PAGE_SIZE) //16896=0x4200
-
-//Adresses limites de translation
-#define NO_TRANS_BEG_ADDR1 0x0
-#define NO_TRANS_END_ADDR1 (FRAMES_OCCUP_TABLE_SIZE+FRAMES_OCCUP_TABLE_ADDR)
-#define NO_TRANS_END_ADDR1 0x500000
-#define NO_TRANS_BEG_ADDR2 0x20000000
-#define NO_TRANS_END_ADDR2 0x21000000
-#define KERNEL_FREE_AREA_BEG 0x8000
-#define KERNEL_FREE_AREA_END 0x40000
 
 //Erreurs ajout table de translation
 #define ADD_TT_SUCCESS 1
@@ -72,9 +32,6 @@
 #define GET_SECONDARY_ENTRY_ADDR(secondaryTableAddr,logicalAddr)	( (uint32_t)secondaryTableAddr + ((( (uint32_t)logicalAddr )>>10)&0x3FC) )
 
 #define GET_SECONDARY_TABLE_ADDR(primaryDescr) (0xFFFFC00 & primaryDescr)
-
-/* ATTENTION Division */
-#define MINI_SIZE_TO_NB_PAGES(size) (size/MINI_FRAMES_SIZE_OF_A_FRAME+1)
 
 //Donnees pour les programmes
 #define INIT_STACK_POINTER 0x19FFFFFF
@@ -127,68 +84,6 @@ void vMem_Free(uint32_t* ptr, unsigned int nbPages);
  * ATTENTION : le pointeur est celui de l'espace virtuel
  */
 
-extern void PUT32( unsigned int addr, unsigned int content);
-/* Fonction permettant d'ajouter manuellement 32 bits en
- * memoire
- */
-
-/* -----------------------FRAMES-TABLE
- * Table d'occupation de la memoire
- * physique, les zones systemes sont
- * ignorees
- * */
-
-void setOccupied(uint32_t noPage);
-/* Passer la page noPage a occupee
-*/
-
-void setUnoccupied(uint32_t noPage);
-/* Passer la page noPage a libre
-*/
-
-int32_t findFirstUnoccupied(uint32_t noPageDebutRecherche);
-/* Trouver la premiere page libre a partir de la page 
- * noPageDebutRecherche
- */
-
-int32_t findFirstOccupied(uint32_t noPageDebutRecherche);
-/* Trouver la premiere page occupee a partir de la page 
- * noPageDebutRecherche
- */
-
-int checkRangeOccupation(uint32_t noPageDebut, uint32_t noPageFin);
-/* Renvoie 1 si au moins une page du range (noPageFin non inclue)
- * est occupee,
- * Renvoie 0 sinon (toutes les pages sont libres)
- * OBSOLETE
- */
-
-int checkOccupation(uint32_t noPage);
-/* Renvoie 1 si la page est occupee
- * Renvoie 0 si la page est libre
- */
-
-void initFramesTable();
-/* Initialise la table des frames a l'adresse FRAMES_OCCUP_TABLE_ADDR
- * en marquant comme occupees les pages de l'OS
- */
-
-uint32_t* getPageDescriptor(uint32_t noPage);
-/* Trouver le descripteur de second niveau de la page 
- * noPage
- */
-
-uint32_t* noPageToPageLineAdress(uint32_t noPage);
-/* Renvoie l'adresse de la ligne (de 8 bits) sur laquelle se trouve
- * le bit occupe/libre de la page specifiee 
- */
-
-
-
-
-
-
-
 
 uint32_t* CreateMemoryArea();
 /* Cree une nouvelle table de translation avec trois tables de niveau 2
@@ -217,64 +112,6 @@ uint32_t* GetPhyFromLog(uint32_t* primaryTableAddr, uint32_t* logAddr);
  */
 
 
-/* ------------------ MINI-FRAMES-TABLE
- * Table d'occupation de la zone des
- * tables primaires et secondaires
- * ATTENTION : UNE TABLE PRIMAIRE OCCUPE
- * 16 FOIS PLUS DE PLACE QU'UNE TABLE
- * SECONDAIRE
- * */
-
-void Mini_SetOccupied(uint32_t noPage);
-/* Passer la page noPage a occupee
-*/
-
-void Mini_SetUnoccupied(uint32_t noPage);
-/* Passer la page noPage a libre
-*/
-
-int32_t Mini_FindFirstUnoccupied(uint32_t noPageDebutRecherche);
-/* Trouver la premiere page libre a partir de la page
- * noPageDebutRecherche
- */
-
-int32_t Mini_FindFirstOccupied(uint32_t noPageDebutRecherche);
-/* Trouver la premiere page occupee a partir de la page
- * noPageDebutRecherche
- */
-
-int Mini_CheckRangeOccupation(uint32_t noPageDebut, uint32_t noPageFin);
-/* Renvoie 1 si au moins une page du range (noPageFin non inclue)
- * est occupee,
- * Renvoie 0 sinon (toutes les pages sont libres)
- * OBSOLETE
- */
-
-int Mini_CheckOccupation(uint32_t noPage);
-/* Renvoie 1 si la page est occupee
- * Renvoie 0 si la page est libre
- */
-
-void Mini_InitFramesTable();
-/* Initialise une petite table des frames pour les tables de translation
- * ATTENTION : afin d'optimiser l'allocation, les Mini_-frames sont de taille
- */
-
-
-
-uint32_t* Mini_Alloc(uint32_t nbMiniFrames, uint8_t nbZeros);
-/* Alloue dans la zone des tables primaires et secondaires l'espace
- * pour nbMiniFrames et renvoie l'adresse de debut, le parametre nbZeros indique le nombre
- * de bits qui doivent etres a zero en bout d'adresse
- * (si allocation classique : mettre 0)
- */
-
-uint8_t Mini_Free(uint32_t* ptTable, uint32_t nbMiniFrames);
-/* Desalloue dans la zone des tables primaires et secondaires l'espace
- * pour nbMiniFrames et renvoie l'adresse de debut
- */
-
-uint32_t* Mini_NoPageToPageLineAdress(uint32_t noPage);
 
 uint32_t* Kernel_InitTTEntries();
 /* Initialise la table de traduction du kernel et renvoie l'adresse
@@ -294,6 +131,8 @@ void InitFirstEntries(uint32_t* primaryTableAddr);
 /* -------------- ESPACE VIRTUEL
  * Fonctions permettant de reserver des ressources virtuelles
  * de maniere coherente
+ * s'appuie sur la structure FreeSpace qui represente un bloc de
+ * memoire VIRTUELLE
  */
 FreeSpace* VirtualSpace_Find(uint32_t nbPages);
 
@@ -311,14 +150,5 @@ void VirtualSpace_Release(uint32_t* logAddrToRealease, uint32_t nbPages);
 FreeSpace* VirtualSpace_GetPrevious(FreeSpace* freeSpace);
 
 FreeSpace* VirtualSpace_GetNextFreeSpace(uint32_t* logAddrToRealease);
-
-
-/* -------------- UTILITAIRES
- *
- */
-#define DVD_ZERO_ERROR 0
-#define DVD_SUCCES 1
-uint8_t Divide(uint32_t top, uint32_t btm, uint32_t* ptRslt, uint32_t* ptMod);
-
 
 #endif

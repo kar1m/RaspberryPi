@@ -2,6 +2,7 @@
 #include "../alloc_simple/phyAlloc.h"
 #include "stdlib.h"
 #include "../VirtualMemory/vmem.h"
+#include "../VirtualMemory/Mini_Alloc.h"
 #include "../hardware/hw.h"
 #include "stdint.h"
 
@@ -14,7 +15,7 @@ extern uint32_t* Kernel_FirstTTAddr;
 /																*/
 unsigned int cpu_cycles() { 
 	unsigned int cycles;
-	asm volatile ("mrc p15, 0, %0, c15, c12, 1" : "=r" (cycles));
+	__asm volatile ("mrc p15, 0, %0, c15, c12, 1" : "=r" (cycles));
 	return cycles;
 }			
 /* 																	    /
@@ -251,11 +252,16 @@ void start_sched(sched_policy _policy)
 
 void start_current_process()
 {
-	//Lancement de la fonction du ps courant avec ses args
-	//On passe dans l'espace memoire Processus ???
-	MMU_COMMUTATION(current_process->firstTTaddr,current_process->id);
+	register func_t pt_fct = current_process->pt_fct;
+	register void* pt_args = current_process->pt_args;
+	
+	//Commutation MMU Kernel->Processus
+	__asm("mcr p15, 0, r0, c8, c6, 0"); //c7 au lieu de c6?? 
+	__asm("mcr p15, 0, %[addr], c2, c0, 0" : : [addr] "r" (current_process->firstTTaddr));
+	__asm("mcr p15, 0, %[addr], c2, c0, 1" : : [addr] "r" (current_process->firstTTaddr));
+	__asm("MCR p15, 0, %[asid], c13, c0, 1" : : [asid] "r" (current_process->id));
 
-	current_process->pt_fct(current_process->pt_args);
+	pt_fct(pt_args);
 }
 
 void kill_current_process()
@@ -288,13 +294,17 @@ void ctx_switch_from_irq()
     __asm("srsdb sp!, #0x13");
     __asm("cps #0x13");
     
-	//On passe dans l'espace memoire Kernel
-	MMU_COMMUTATION(Kernel_FirstTTAddr,Kernel_ASID);
-
     //Sauvegarde du contexte
     
     //----on sauvegarde les registres
     __asm("push {r0-r12}");
+
+	//Commutation MMU vers Kernel
+	__asm("mcr p15, 0, r0, c8, c6, 0"); //c7 au lieu de c6?? 
+	__asm("mcr p15, 0, %[addr], c2, c0, 0" : : [addr] "r" (Kernel_FirstTTAddr));
+	__asm("mcr p15, 0, %[addr], c2, c0, 1" : : [addr] "r" (Kernel_FirstTTAddr));
+	__asm("MCR p15, 0, %[asid], c13, c0, 1" : : [asid] "r" (Kernel_ASID));
+
     //----cad on range le PC courant dans la pile
     __asm("mov %0, lr" : "=r"(current_process->currentPC));
     //----puis on sauvegarde le SP
@@ -332,21 +342,26 @@ void ctx_switch_from_irq()
 				}          	
             case READY:
                 current_process->ps_state = RUNNING;
-                
-                //3 Restauration contexte
+				//3A Sauvegarde du SP et du PC
+				register unsigned int currentSP = current_process->currentSP;
+				register unsigned int currentPC = current_process->currentPC;
+
+                //3B Commutation MMU vers Processus
+				__asm("mcr p15, 0, r0, c8, c6, 0"); //c7 au lieu de c6?? 
+				__asm("mcr p15, 0, %[addr], c2, c0, 0" : : [addr] "r" (current_process->firstTTaddr));
+				__asm("mcr p15, 0, %[addr], c2, c0, 1" : : [addr] "r" (current_process->firstTTaddr));
+				__asm("MCR p15, 0, %[asid], c13, c0, 1" : : [asid] "r" (current_process->id));
+
+                //3C Restauration contexte
                 //----et on recharge le SP
-                __asm("mov sp, %0" : : "r"(current_process->currentSP));
+                __asm("mov sp, %0" : : "r"(currentSP));
                 //----on charge LR pour le retour
-                __asm("mov lr, %0" : : "r"(current_process->currentPC));
+                __asm("mov lr, %0" : : "r"(currentPC));
                 //----on restaure les registres
 				set_tick_and_enable_timer();
                 __asm("pop {r0-r12}");
 
 				ENABLE_IRQ();
-
-				//On passe dans l'espace memoire du processus
-				//EST CE QUE C'EST BIEN LA ????
-				MMU_COMMUTATION(current_process->firstTTaddr,current_process->id);
 
 				__asm("rfeia sp!");                
 

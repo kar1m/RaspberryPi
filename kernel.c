@@ -2,9 +2,9 @@
 #include "./hardware/hw.h"
 #include "./sem_pi/sem.h"
 #include "./sched_simple/sched.h"
-#include "syscall/syscall.h"
-#include "VirtualMemory/vmem.h"
-
+#include "./syscall/syscall.h"
+#include "./VirtualMemory/vmem.h"
+#include "./VirtualMemory/Mini_Alloc.h"
 
 extern uint32_t* Kernel_FirstTTAddr;
 
@@ -21,7 +21,6 @@ void funcA()
 
 void funcB()
 {
-
 	int clt =0;
 	while (1) {
 		clt+=5;
@@ -32,6 +31,8 @@ void funcB()
 
 void funcC()
 {
+	uint32_t* pt = (uint32_t*)0x200000;
+	*pt = 12345678;
 	int clt =0;
 	while (clt < 10) {
 		clt++;

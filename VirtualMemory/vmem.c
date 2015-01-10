@@ -1,4 +1,7 @@
 #include "vmem.h"
+#include "../utilities/utilities.h"
+#include "Mini_Alloc.h"
+#include "Frames.h"
 #include <stdio.h>
 
 /* VARIABLES GLOBALES */
@@ -6,13 +9,12 @@
 //Variables pot de fleur
 unsigned int total=0;	//Pour start MMU
 uint32_t globMod=0;		//Modulo global (pour la division)
+FreeSpace* ptFirstFreeSpace;
 
 //MMU 
 uint32_t* Kernel_FirstTTAddr;
 extern uint8_t Kernel_ASID;
 
-//Inutile ??
-FreeSpace* ptFirstFreeSpace;
 
 /* REALISATION DE FONCTIONS */
 
@@ -129,6 +131,19 @@ int testVM()
     return 0;
 }
 
+
+
+
+
+// Enough shit, here we have the --------------
+// --------------USEFUL FONCTIONS--------------
+// --------------------------------------------
+
+
+/* CONFIGURATION FONCTIONS 
+ * MMU configuration fonctions
+ *
+*/
 void ConfigureKTT_And_EnableMMU()
 {
 	initFramesTable();
@@ -170,6 +185,11 @@ void configure_mmu_C(uint32_t* primaryTableAddr)
  * */
 	__asm volatile("mcr p15, 0, %[r], c3, c0, 0" : : [r] "r" (0x3));
 }
+
+
+
+/* vMem FONCTIONS
+*/
 
 uint32_t* vMem_Alloc(unsigned int nbPages)
 /* Algo : 
@@ -214,140 +234,6 @@ void vMem_Free(uint32_t* ptr, unsigned int nbPages)
 		setUnoccupied((uint32_t)phyAddr/PAGE_SIZE);
 	}
 	VirtualSpace_Release(ptr,nbPages);
-}
-
-uint32_t* getPageDescriptor(uint32_t noPage)
-{
-    /* On raisonne en PAGE */
-    return (uint32_t*)noPage+SECON_LVL_TT_START_ADDR;
-}
-
-int32_t findFirstUnoccupied(uint32_t noPageDebut)
-{
-    /* On raisonne en PAGE
-        mais il faudrait raisonner en @ pour la perf*/
-    uint32_t currPage;
-	uint8_t unoccFind = 0;
-    for(currPage=noPageDebut;
-        currPage<PAGE_COUN;
-        currPage++)
-	{
-        if(!checkOccupation(currPage))
-        {
-            unoccFind = 1;
-            break;
-        }
-	}
-	if(unoccFind)
-        return currPage;
-	else
-		return -1;
-}
-
-int32_t findFirstOccupied(uint32_t noPageDebut)
-{
-    /* On raisonne en PAGE
-        mais il faudrait raisonner en @ pour la perf*/
-    uint32_t currPage;
-	uint8_t occFind = 0;
-    for(currPage=noPageDebut;
-        currPage<PAGE_COUN;
-        currPage++)
-	{
-        if(checkOccupation(currPage))
-        {
-            occFind = 1;
-            break;
-        }
-	}
-	if(occFind)
-        	return currPage;
-	else
-		return -1;
-}
-
-int checkRangeOccupation(uint32_t pageBegin, uint32_t pageEnd)
-{
-    /* On raisonne en PAGE */
-    uint32_t currentPage;
-	for(currentPage=pageBegin;currentPage<pageEnd;currentPage++)
-		//Il suffit qu'une seule page soit occupee
-		//pour faire echouer la procedure
-		if(checkOccupation(currentPage))
-			return 1;
-	
-	return 0;
-}
-
-int checkOccupation(uint32_t noPage)
-{	
-    /* On raisonne entre PAGE & ADRESSE */
-    uint32_t* occupTableAddr = noPageToPageLineAdress(noPage);
-	uint8_t occupTableOffs = noPage%8;
-	uint8_t occupModifierLine = 1 << occupTableOffs;
-	return ((*occupTableAddr & occupModifierLine));		
-}
-
-void setOccupied(uint32_t noPage)
-{
-    /* On raisonne entre PAGE & ADRESSE */
-    uint32_t* occupTableAddr = noPageToPageLineAdress(noPage);
-	uint8_t occupTableOffs = noPage%8;
-	uint8_t occupModifierLine = 1 << occupTableOffs;
-	*occupTableAddr = *occupTableAddr | occupModifierLine;
-}
-
-void setUnoccupied(uint32_t noPage)
-{
-    /* On raisonne entre PAGE & ADRESSE */
-    uint32_t* occupTableAddr = noPageToPageLineAdress(noPage);
-    uint8_t occupTableOffs = noPage%8;
-    uint8_t occupModifierLine = 255
-                                & ~(1 << occupTableOffs);
-	*occupTableAddr = *occupTableAddr & occupModifierLine;
-}
-
-void initFramesTable()
-{
-    /* On bloque toutes les pages utilisees par le systeme
-     * Ici on raisonne en @ & PAGE
-    */
-
-    uint32_t currentPage;
-	uint32_t initPageFirst;
-	uint32_t endPageFirst;
-	uint32_t initPageSecon;
-	uint32_t endPageSecon;
-	Divide(	NO_TRANS_BEG_ADDR1,
-			PAGE_SIZE,
-			&initPageFirst,&globMod);
-	Divide(	NO_TRANS_END_ADDR1,
-			PAGE_SIZE,
-			&endPageFirst, &globMod);
-
-	Divide(	NO_TRANS_BEG_ADDR2,
-			PAGE_SIZE,
-			&initPageSecon,&globMod);
-	Divide(	NO_TRANS_END_ADDR2,
-			PAGE_SIZE,
-			&endPageSecon, &globMod);
-
-	for(currentPage=initPageFirst;currentPage<endPageFirst;currentPage++)
-    {
-        setOccupied(currentPage);
-    }
-
-    for(currentPage=initPageSecon;currentPage<initPageSecon;currentPage++)
-    {
-        setOccupied(currentPage);
-    }
-}
-
-uint32_t* noPageToPageLineAdress(uint32_t noPage)
-{
-    uint32_t occupTableLine = noPage/8;
-    uint32_t occupTableAddr = (occupTableLine+FRAMES_OCCUP_TABLE_ADDR);
-    return (uint32_t*)occupTableAddr;
 }
 
 
@@ -410,196 +296,6 @@ uint8_t LinkLogAddrToPhyAddr(	uint32_t* primaryTableAddr,
 	}
 }
 
-
-/* ---------------------- MINI-TABLE
- *
- *
- *
- * */
-
-int32_t Mini_FindFirstUnoccupied(uint32_t noPageDebut)
-{
-    /* On raisonne en PAGE
-        mais il faudrait raisonner en @ pour la perf*/
-    uint32_t currPage;
-    uint8_t unoccFind = 0;
-    for(currPage=noPageDebut;
-        currPage<MINI_FRAMES_FRAMES_COUN;
-        currPage++)
-    {
-        if(!Mini_CheckOccupation(currPage))
-        {
-            unoccFind = 1;
-            break;
-        }
-    }
-    if(unoccFind)
-        return currPage;
-    else
-        return -1;
-} //
-
-int32_t Mini_FindFirstOccupied(uint32_t noPageDebut)
-{
-    /* On raisonne en PAGE
-        mais il faudrait raisonner en @ pour la perf*/
-    uint32_t currPage;
-    uint8_t occFind = 0;
-    for(currPage=noPageDebut;
-        currPage<MINI_FRAMES_FRAMES_COUN;
-        currPage++)
-    {
-        if(Mini_CheckOccupation(currPage))
-        {
-            occFind = 1;
-            break;
-        }
-    }
-    if(occFind)
-            return currPage;
-    else
-        return -1;
-} //
-
-int Mini_CheckRangeOccupation(uint32_t pageBegin, uint32_t pageEnd)
-{
-    /* On raisonne en PAGE */
-    uint32_t currentPage;
-    for(currentPage=pageBegin;currentPage<pageEnd;currentPage++)
-    {
-        //Il suffit qu'une seule page soit occupee
-        //pour faire echouer la procedure
-        if(Mini_CheckOccupation(currentPage))
-        {   return 1;  }
-    }
-    return 0;
-} //
-
-int Mini_CheckOccupation(uint32_t noPage)
-{
-    /* On raisonne entre PAGE & ADRESSE */
-    uint32_t* occupTableAddr = Mini_NoPageToPageLineAdress(noPage);
-    uint8_t occupTableOffs = noPage%8;
-    uint8_t occupModifierLine = 1 << occupTableOffs;
-    return ((*occupTableAddr & occupModifierLine));
-} //
-
-void Mini_SetOccupied(uint32_t noPage)
-{
-    /* On raisonne entre PAGE & ADRESSE */
-    uint32_t* occupTableAddr = Mini_NoPageToPageLineAdress(noPage);
-    uint8_t occupTableOffs = noPage%8;
-    uint8_t occupModifierLine = 1 << occupTableOffs;
-    *occupTableAddr = *occupTableAddr | occupModifierLine;
-} //
-
-void Mini_SetUnoccupied(uint32_t noPage)
-{
-    /* On raisonne entre PAGE & ADRESSE */
-    uint32_t* occupTableAddr = Mini_NoPageToPageLineAdress(noPage);
-    uint8_t occupTableOffs = noPage%8;
-    uint8_t occupModifierLine = 255
-                                & ~(1 << occupTableOffs);
-    *occupTableAddr = *occupTableAddr & occupModifierLine;
-} //
-
-void Mini_InitPagesTable()
-{
-    uint32_t currentPage;
-    for(currentPage=0;currentPage<MINI_FRAMES_FRAMES_COUN;currentPage++)
-    {
-        Mini_SetUnoccupied(currentPage);
-    }
-} //
-
-uint32_t* Mini_NoPageToPageLineAdress(uint32_t noPage)
-{
-    uint32_t occupTableLine = noPage/8;
-    uint32_t occupTableAddr = (occupTableLine+MINI_FRAMES_ADDR);
-    return (uint32_t*)occupTableAddr;
-} //
-
-
-/* --------------- MINI ALLOC, MINI FREE
- */
-
-uint32_t* Mini_Alloc(uint32_t nbMiniFrames, uint8_t nbZeros)
-{
-    /* On raisonne en PAGE, mais on renvoie une adresse */
-    uint32_t addrMem = NULL;
-    int32_t noPage = 0;
-	uint32_t addrStep = 1 << nbZeros;
-
-    do {
-        noPage = Mini_FindFirstUnoccupied(noPage);
-        if(noPage==-1)
-            //On est arrive au bout de l'espace
-            return NULL;
-
-		// Dans le cas où l'on veuille des zeros
-		// en fin d'adresse, on corrige le noPage
-		if(nbZeros>0)
-		{
-			// On evite la division psk c'est le bordel
-			uint32_t noBloc = 1;
-			while(noBloc*addrStep<noPage*MINI_FRAMES_SIZE_OF_A_FRAME)
-			{
-				noBloc++;
-			}
-			uint32_t noPageU;
-			Divide(	noBloc*addrStep,
-					MINI_FRAMES_SIZE_OF_A_FRAME,
-					&noPageU, &globMod);
-			noPage = (int32_t)noPageU;
-		}
-
-        if(!Mini_CheckRangeOccupation(noPage,noPage+nbMiniFrames))
-        {
-            break;
-        }
-        noPage = Mini_FindFirstOccupied((uint32_t) noPage);
-    } while(noPage!=-1);
-
-    if(noPage==-1)
-        return NULL;
-    //On a notre plage de pages
-    //On charge en retour l'adresse initiale
-	addrMem = noPage*MINI_FRAMES_SIZE_OF_A_FRAME+KERNEL_MRY_ADDR;
-
-    //Remplissage de la table des pages
-    uint32_t noCurrentPage;
-    for(noCurrentPage=noPage;
-        noCurrentPage<noPage+nbMiniFrames;
-        noCurrentPage++)
-    {
-        Mini_SetOccupied(noCurrentPage);
-    }
-    return (uint32_t*)addrMem;
-}
-
-uint8_t Mini_Free(uint32_t* ptTable, uint32_t nbMiniFrames)
-{
-    uint32_t currentPage;
-	uint32_t pageInit;
-	uint32_t pageEnd;
-	uint32_t mod;	//pour divide, mais inutile
-	Divide(((uint32_t) ptTable-KERNEL_MRY_ADDR),
-			MINI_FRAMES_SIZE_OF_A_FRAME,
-			&pageInit,&mod);
-
-	Divide(((uint32_t) ptTable-KERNEL_MRY_ADDR),
-			MINI_FRAMES_SIZE_OF_A_FRAME+nbMiniFrames,
-			&pageEnd,&mod);
-
-	for(currentPage = pageInit;
-		currentPage < pageEnd;
-        currentPage++)
-    {
-        Mini_SetUnoccupied(currentPage);
-    }
-
-	return 0;
-}
 
 /* ------------------ VIRTUAL SPACE ALLOCATOR
  */
@@ -732,7 +428,6 @@ uint32_t* Kernel_InitTTEntries()
  */
 {
     uint32_t primaryTable_flag = KERNEL_FIRST_TT_FLAGS;
-    uint32_t primaryTable_transErrorFlag = PRIMARY_TRANS_FAULT_1;
     uint32_t device_flag = KERNEL_SECON_TT_FLAGS_DEVICES;
     uint32_t normal_flag = KERNEL_SECON_TT_FLAGS_INIT;
 	uint32_t* currentAddr;
@@ -800,22 +495,4 @@ uint32_t* GetPhyFromLog(uint32_t* primaryTableAddr, uint32_t* logAddr)
 
 
 
-/* ------------- Utilitaires
- */
-
-uint8_t Divide(uint32_t top, uint32_t btm, uint32_t* ptRslt, uint32_t* ptMod)
-{
-	uint32_t incr;
-	uint32_t somme = btm;
-	if(btm==0)
-		return DVD_ZERO_ERROR;
-
-	for(incr=0;somme<=top;incr++)
-	{
-		somme += btm;
-	}
-	*ptRslt = incr;
-	*ptMod = top+btm-somme;
-	return DVD_SUCCES;
-}
 

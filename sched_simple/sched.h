@@ -6,11 +6,6 @@
 #include "../VirtualMemory/vmem.h"
 #include "stdlib.h"
 
-#define MMU_COMMUTATION(addrTT,asid)\
-{\
-\ 
-}
-/* Effectue un changement de table de traduction */
 
 typedef void (*func_t) (void*);
 
