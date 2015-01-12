@@ -4,11 +4,13 @@
 #include "../VirtualMemory/vmem.h"
 #include "../VirtualMemory/Mini_Alloc.h"
 #include "../hardware/hw.h"
+#include "../alloc_dyn/vMem_Alloc.h"
 #include "stdint.h"
 
 /* Variables globales pour la MMU */
 uint8_t Kernel_ASID = 1;
 extern uint32_t* Kernel_FirstTTAddr;
+FreeSpace* ptFirstFreeSpace;
 
 /* 																/
 ------------------------------Utils------------------------------

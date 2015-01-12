@@ -3,6 +3,6 @@
 
 #include "stdlib.h"
 
-void data_handler();
+void __attribute__ ((naked)) data_interrupt();
 
 #endif

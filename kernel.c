@@ -5,6 +5,7 @@
 #include "./syscall/syscall.h"
 #include "./VirtualMemory/vmem.h"
 #include "./VirtualMemory/Mini_Alloc.h"
+#include "./alloc_dyn/vMem_Alloc.h"
 
 extern uint32_t* Kernel_FirstTTAddr;
 
@@ -49,7 +50,8 @@ int kmain ( void )
 	// SEQUENCE INITIALISATION
     init_hw();
 	ConfigureKTT_And_EnableMMU();
-
+	uint32_t* pt = (uint32_t*)0x1000000;
+	*pt = 20121992;
 	//testVM();
     int stack_size = STACK_SIZE;
     create_process(funcB, NULL, stack_size);

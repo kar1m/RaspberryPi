@@ -3,7 +3,7 @@
 
 #define STACK_SIZE 1024 
 
-#include "../VirtualMemory/vmem.h"
+#include "../alloc_dyn/vMem_Alloc.h"
 #include "stdlib.h"
 
 
