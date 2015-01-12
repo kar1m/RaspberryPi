@@ -3,7 +3,9 @@
 
 #define STACK_SIZE 1024 
 
+#include "../alloc_dyn/vMem_Alloc.h"
 #include "stdlib.h"
+
 
 typedef void (*func_t) (void*);
 
@@ -30,16 +32,19 @@ typedef enum sched_policy
 
 
 typedef struct pcb_s{
-	int id;			//Id processus
-	pcb_state ps_state;	//Etat du processus
-	func_t pt_fct;		//Pointeur de fonction
-	void* pt_args;		//Pointeur vers les arguments
-	struct pcb_s* pt_nextPs;//Pointeur vers le processus suivant
-	unsigned int currentSP;	//Pointeur de pile courant
-	unsigned int currentPC;	//Compteur d'instruction courant
-	unsigned int stackSize;//Stack size pour dépiler
-	pcb_priority priority; // PRIORITE
-	unsigned int nbQuantums; //Quantums d'attente
+	uint8_t id;					//Id processus
+	pcb_state ps_state;			//Etat du processus
+	func_t pt_fct;				//Pointeur de fonction
+	void* pt_args;				//Pointeur vers les arguments
+	uint32_t* firstTTaddr;		//Adresse de la table de translation de niveau 1
+	FreeSpace*	pt_fsHeap;		//Pointeur vers le premier descripteur d'espace libre du tas
+	struct pcb_s* pt_nextPs;	//Pointeur vers le processus suivant
+	unsigned int currentSP;		//Pointeur de pile courant
+	unsigned int currentPC;		//Compteur d'instruction courant
+	unsigned int stackSize;		//Stack size pour dépiler
+	pcb_priority priority;		// PRIORITE
+	unsigned int nbQuantums;
+	
 	int blocked; // Etat blocage processus (0:debloqué 1:bloqué)
 } pcb_s;
 
@@ -57,12 +62,13 @@ struct pcb_s* tab_files_process [NUMBER_LISTS];
 void init_pcb(pcb_s* pcb, func_t f, void* ptArgs);
 void create_process(func_t f, void* args, unsigned int stack_size);
 
-
+void __attribute__ ((naked)) switch_next();
 void start_sched( sched_policy _policy );
 void elect();
 
 void start_current_process();
 void kill_current_process();
+
 
 void ctx_switch_from_irq();
 unsigned int cpu_cycles();

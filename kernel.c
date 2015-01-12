@@ -2,10 +2,16 @@
 #include "./hardware/hw.h"
 #include "sem_pi/sem.h"
 #include "./sched_simple/sched.h"
-#include "syscall/syscall.h"
 #include "VirtualMemory/vmem.h"
 #include "pwm.h"
 #include "Framebuffer/fb.h"
+#include "./syscall/syscall.h"
+#include "./VirtualMemory/vmem.h"
+#include "./VirtualMemory/Mini_Alloc.h"
+#include "./alloc_dyn/vMem_Alloc.h"
+
+extern uint32_t* Kernel_FirstTTAddr;
+>>>>>>> MMU_integration
 
 void funcA()
 {
@@ -13,12 +19,10 @@ void funcA()
 		drawRed();
 		drawBlue(); 
 	}
-
 }
 
 void funcB()
 {
-
 	int clt =0;
 	while (1) {
 		int j = 0; 
@@ -36,6 +40,8 @@ void funcB()
 
 void funcC()
 {
+	uint32_t* pt = (uint32_t*)0x200000;
+	*pt = 12345678;
 	int clt =0;
 	while (1) {
     	audio_test();
@@ -55,7 +61,6 @@ void funcAt()
 		sem_down(&alpha);
 		//sem_up(&alpha);
 	}
-    }
 }
 
 void funcBt()
@@ -78,7 +83,6 @@ void testsem()
 //------------------------------------------------------------------------
 int kmain ( void )
 {
-
 // SEQUENCE INITIALISATION
 	/*init_kern_translation_table();
 	configure_mmu_C();
@@ -93,9 +97,13 @@ int kmain ( void )
 
 init_hw();
 //testVM();
-FramebufferInitialize();
-
-
+	current_process = (pcb_s*) Mini_Alloc(MINI_SIZE_TO_NB_PAGES(sizeof(pcb_s)),0);
+	current_process->pt_fct = NULL;
+	// SEQUENCE INITIALISATION
+    init_hw();
+	ConfigureKTT_And_EnableMMU();
+	//testVM();
+	FramebufferInitialize();
 
     int stack_size = STACK_SIZE;
     //testsem();
@@ -103,8 +111,8 @@ FramebufferInitialize();
     create_process(funcA, NULL, stack_size);
     //create_process(funcC, NULL, stack_size);
 
-    start_sched( SIMPLE );
-
+    //start_sched( SIMPLE );
+	funcBt();
     while(1){}
     /* Pas atteignable vues nos 2 fonctions */
     return 0;
